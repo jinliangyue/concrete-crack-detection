@@ -1,9 +1,9 @@
 # Concrete Crack Detection · Transfer Learning Ablation
 
-[![Tests](https://img.shields.io/github/actions/workflow/status/jinliangyue/civil-engineering-crack-detection/test.yml?branch=main&label=tests)](https://github.com/jinliangyue/civil-engineering-crack-detection/actions/workflows/test.yml)
+[![Tests](https://img.shields.io/github/actions/workflow/status/jinliangyue/concrete-crack-detection/test.yml?branch=main&label=tests)](https://github.com/jinliangyue/concrete-crack-detection/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://github.com/jinliangyue/civil-engineering-crack-detection/blob/main/runtime.txt)
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://civil-engineering-crack-detection.streamlit.app/)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://github.com/jinliangyue/concrete-crack-detection/blob/main/runtime.txt)
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://concrete-crack-detection.streamlit.app/)
 
 > 在 SDNET2018（56,092 张真实混凝土桥面/路面/墙体图像）上的迁移学习消融对比——**Random Forest (59.42%) → 自建 CNN (67.27%) → ResNet18 迁移学习 (86.58%)**。模型 + Web 演示 + 完整复现命令。
 
@@ -70,7 +70,7 @@ Training outputs are persisted to `results/<model>_results.json` (metrics + hist
 ## Project structure
 
 ```
-civil-engineering-crack-detection/
+concrete-crack-detection/
 ├── README.md                          (this file)
 ├── runtime.txt                        Python version pin
 ├── requirements.txt                   runtime deps

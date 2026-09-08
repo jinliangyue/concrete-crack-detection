@@ -1,0 +1,46 @@
+{
+  "config": {
+    "model": "rf",
+    "img_size": 64,
+    "max_per_class": 4000,
+    "surfaces": [
+      "D",
+      "P",
+      "W"
+    ],
+    "epochs": null,
+    "lr": null,
+    "batch_size": null,
+    "seed": 42,
+    "n_train": 6800,
+    "n_test": 1200
+  },
+  "accuracy": 0.5941666666666666,
+  "report": {
+    "NoCrack": {
+      "precision": 0.5927750410509032,
+      "recall": 0.6016666666666667,
+      "f1-score": 0.597187758478081,
+      "support": 600.0
+    },
+    "Crack": {
+      "precision": 0.5956006768189509,
+      "recall": 0.5866666666666667,
+      "f1-score": 0.5910999160369438,
+      "support": 600.0
+    },
+    "accuracy": 0.5941666666666666,
+    "macro avg": {
+      "precision": 0.594187858934927,
+      "recall": 0.5941666666666667,
+      "f1-score": 0.5941438372575124,
+      "support": 1200.0
+    },
+    "weighted avg": {
+      "precision": 0.5941878589349271,
+      "recall": 0.5941666666666666,
+      "f1-score": 0.5941438372575124,
+      "support": 1200.0
+    }
+  }
+}

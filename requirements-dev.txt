@@ -1,0 +1,8 @@
+# Development & testing dependencies (NOT required for the trained models).
+#
+# Install:
+#   pip install -r requirements-dev.txt
+#
+# Then run:
+#   pytest tests/ -v
+pytest>=7.4

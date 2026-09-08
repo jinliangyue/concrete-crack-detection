@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.iml
+.DS_Store
+
+# Data（不提交数据集；只提交 download 脚本）
+data/DATA_Maguire_20180517_ALL/
+data/raw/
+data/processed/
+
+# 模型权重（用 Git LFS 或单独 release）
+models/*.pt
+models/*.pth
+models/*.onnx
+
+# 日志 / 临时
+*.log
+*.tmp
+logs/
+tmp/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# 测试报告
+test_reports/
+
+# 环境与密钥
+.env
+.env.local
+
+# 备份
+*.bak
+*.orig
+*.rej
+
+# 构建产物
+build/
+dist/
+*.egg
+*.whl

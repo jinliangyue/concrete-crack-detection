@@ -140,5 +140,9 @@ acc = accuracy_score(all_labels, all_preds)
 print(f"\nFinal Accuracy: {acc:.4f} ({acc*100:.2f}%)")
 print(classification_report(all_labels, all_preds, target_names=['NoCrack','Crack']))
 
-torch.save(model.state_dict(), '/Users/xiayuhao/Desktop/Claude code/crack_cnn.pt')
-print("Saved: crack_cnn.pt")
+# Save checkpoint (project-relative path; legacy script from pre-refactor era)
+from pathlib import Path as _P
+_LEGACY_CKPT_DIR = _P(__file__).resolve().parent / "models"
+_LEGACY_CKPT_DIR.mkdir(exist_ok=True)
+torch.save(model.state_dict(), str(_LEGACY_CKPT_DIR / "crack_cnn.pt"))
+print(f"Saved: {_LEGACY_CKPT_DIR / 'crack_cnn.pt'}")

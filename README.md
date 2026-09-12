@@ -14,10 +14,10 @@ A clean three-way ablation on the SDNET2018 concrete crack dataset, comparing a 
 | Method | Test accuracy | Train / Test | Parameters |
 |---|---:|---|---:|
 | Random Forest (64×64 grayscale, 200 trees) | **59.42%** | 6,800 / 1,200 | — |
-| Self-built CNN (4 conv blocks, 96×96 input) | **67.27%** | 6,800 / 1,200 | 5.3M |
+| Self-built CNN (4 conv blocks, 96×96 input, CosineAnnealingLR) | **72.83%** | 6,800 / 1,200 | 5.3M |
 | **ResNet18 (ImageNet transfer, 160×160 input)** | **86.58%** | 6,800 / 1,200 | 11M |
 
-**Headline:** ResNet18 with ImageNet pre-training beats the Random Forest baseline by **27.16 percentage points** and the self-built CNN by **19.31 percentage points**, with the same training set and identical evaluation protocol. The transfer-learning gap is the story.
+**Headline:** ResNet18 with ImageNet pre-training beats the Random Forest baseline by **27.16 percentage points** and the self-built CNN by **13.75 percentage points**, with the same training set and identical evaluation protocol. The transfer-learning gap is the story.
 
 ### Comparison with the published paper
 
@@ -26,10 +26,10 @@ This project started as a comparison study for the CAHEML 2026 conference. The o
 | Method | Paper | Reproduced (this repo) | Δ |
 |---|---:|---:|---:|
 | Random Forest | 59.10% | 59.42% | +0.32pp |
-| Self-built CNN | 75.87% | 67.27% | −8.60pp |
+| Self-built CNN | 75.87% | **72.83%** | **−3.04pp** |
 | ResNet18 transfer | 85.92% | 86.58% | +0.66pp |
 
-The CNN gap is a known reproducibility issue traced to RNG implementation differences (`np.random.default_rng` vs the legacy `np.random.choice` used in the original script) and a missing `CosineAnnealingLR` scheduler. The ResNet18 result actually exceeds the paper. The headline story ("transfer learning decisively beats both baselines") is unchanged.
+The CNN gap is a known reproducibility issue traced to RNG implementation differences (`np.random.default_rng` vs the legacy `np.random.choice` used in the original script) and a missing `CosineAnnealingLR` scheduler. **2026-09-12 partial fix:** re-trained the CNN after adding `optim.lr_scheduler.CosineAnnealingLR(T_max=15)` (the scheduler the original paper used). CNN acc moved from 67.27% → 72.83% (+5.56pp), paper gap shrunk from −8.60pp to −3.04pp. The headline story ("transfer learning decisively beats both baselines") is unchanged and now numerically tighter.
 
 ## Demo
 

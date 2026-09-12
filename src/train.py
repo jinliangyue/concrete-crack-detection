@@ -109,12 +109,13 @@ def train_torch(
     lr: float,
     device: torch.device,
 ) -> Dict[str, Any]:
-    """Train a torch model with AdamW + best-checkpoint tracking."""
+    """Train a torch model with AdamW + CosineAnnealingLR + best-checkpoint tracking."""
     opt = optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
     crit = nn.CrossEntropyLoss()
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(opt, T_max=epochs)
     best_acc = 0.0
     best_state: Dict[str, torch.Tensor] | None = None
-    history: Dict[str, list] = {"train_acc": [], "val_acc": [], "loss": []}
+    history: Dict[str, list] = {"train_acc": [], "val_acc": [], "loss": [], "lr": []}
 
     for epoch in range(epochs):
         model.train()
@@ -143,14 +144,18 @@ def train_torch(
         history["train_acc"].append(train_acc)
         history["val_acc"].append(val_acc)
         history["loss"].append(train_loss)
+        history["lr"].append(opt.param_groups[0]["lr"])
 
         if val_acc > best_acc:
             best_acc = val_acc
             best_state = {k: v.clone() for k, v in model.state_dict().items()}
 
+        scheduler.step()
+
         print(
             f"E{epoch + 1:2d}/{epochs} | Loss {train_loss:.4f} | "
-            f"Train {train_acc:.4f} | Val {val_acc:.4f} | Best {best_acc:.4f}"
+            f"Train {train_acc:.4f} | Val {val_acc:.4f} | Best {best_acc:.4f} | "
+            f"LR {opt.param_groups[0]['lr']:.6f}"
         )
 
     # Reload best checkpoint for final evaluation

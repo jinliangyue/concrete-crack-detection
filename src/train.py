@@ -183,6 +183,8 @@ def train_torch(
         "report": classification_report(
             all_labels, all_preds, target_names=["NoCrack", "Crack"], output_dict=True,
         ),
+        "predictions": [int(p) for p in all_preds],
+        "labels": [int(l) for l in all_labels],
     }
 
 
@@ -324,6 +326,10 @@ def main() -> int:
         metrics["history"] = result["history"]
         metrics["report"] = result["report"]
         metrics["checkpoint"] = str(ckpt_path.relative_to(PROJECT_ROOT))
+        # Save predictions + labels for confusion matrix / ROC analysis (v8.3+)
+        if "predictions" in result and "labels" in result:
+            metrics["predictions"] = result["predictions"]
+            metrics["labels"] = result["labels"]
 
     # Persist JSON metrics
     out_path = results_dir / f"{args.model}_results.json"

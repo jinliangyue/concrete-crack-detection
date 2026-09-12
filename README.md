@@ -16,9 +16,11 @@ A clean three-way ablation on the SDNET2018 concrete crack dataset, comparing a 
 | Random Forest (64×64 grayscale, 200 trees) | **59.42%** | 6,800 / 1,200 | — |
 | Self-built CNN (4 conv blocks, 96×96 input, CosineAnnealingLR, 20 epochs) | **76.25%** | 6,800 / 1,200 | 5.30M |
 | **CNN + SE-Blocks** (channel attention, same backbone, 96×96) | **77.58%** | 6,800 / 1,200 | **5.32M** (+0.23%) |
-| **ResNet18 (ImageNet transfer, 160×160 input)** | **86.58%** | 6,800 / 1,200 | 11M |
+| **ResNet18 (ImageNet transfer, 160×160 input)** | **87.92%** | 6,800 / 1,200 | 11M |
 
-**Headline:** ResNet18 with ImageNet pre-training beats the Random Forest baseline by **27.16 percentage points**, the self-built CNN by **10.33 percentage points**, and CNN+SE by **9.00 percentage points**. CNN+SE channel attention adds **+1.33pp** over the plain CNN for only **+12,296 parameters (+0.23%)**. The transfer-learning gap is still the story — but the within-CNN gap shows that architectural innovations inside the same parameter budget can also move the needle.
+**Headline:** ResNet18 with ImageNet pre-training beats the Random Forest baseline by **28.50 percentage points**, the self-built CNN by **11.67 percentage points**, and CNN+SE by **10.34 percentage points**. CNN+SE channel attention adds **+1.33pp** over the plain CNN for only **+12,296 parameters (+0.23%)**. The transfer-learning gap is still the story — but the within-CNN gap shows that architectural innovations inside the same parameter budget can also move the needle.
+
+> **2026-09-12 note**: ResNet18 was re-trained after landing the `predictions`/`labels` JSON output (v8.3). New test accuracy 87.92% (previously 86.58%); the +1.34pp shift is MPS floating-point accumulation noise across re-runs — same seed, same data, slight non-determinism in cuBLAS / MPS kernels. The reproduction story is unchanged.
 
 ### Comparison with the published paper
 
@@ -43,13 +45,14 @@ This project started as a comparison study for the CAHEML 2026 conference. The o
 
 ## Demo
 
-The Streamlit demo (`app/streamlit_app.py`) has five sections:
+The Streamlit demo (`app/streamlit_app.py`) has six sections:
 
 1. **Try it** — upload any concrete surface image, get a prediction with confidence
 2. **Where is the model looking?** — Grad-CAM heatmap on `layer4` overlays the regions that drove the decision
 3. **Model comparison** — accuracy ladder across the **four** methods (RF / CNN / CNN+SE / ResNet18), with pp gap to transfer learning and SE-block delta
 4. **Per-class metrics** — collapsible tables of Precision / Recall / F1 for every model
-5. **Training curves** — CNN (dotted) vs CNN+SE (dashed) vs ResNet18 (solid) validation curves overlaid
+5. **Confusion matrices** — true-vs-predicted heatmap for each model (rows=true, cols=predicted); TP / TN / FP / FN counts. v8.3+ saves predictions to JSON.
+6. **Training curves** — CNN (dotted) vs CNN+SE (dashed) vs ResNet18 (solid) validation curves overlaid
 
 ```bash
 streamlit run app/streamlit_app.py

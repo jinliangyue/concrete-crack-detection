@@ -29,6 +29,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.compare import comparison_table, headline_improvement  # noqa: E402
+from src.confusion import confusion_matrix  # noqa: E402
 from src.data import PROJECT_ROOT as _PROJECT_ROOT  # noqa: E402
 from src.infer import predict  # noqa: E402
 from src.xai import gradcam_heatmap, overlay_heatmap  # noqa: E402
@@ -368,6 +369,92 @@ def render_metrics_breakdown() -> None:
             st.dataframe(df, use_container_width=True, hide_index=True)
 
 
+def render_confusion_matrices() -> None:
+    """Per-model confusion matrix heatmaps (rows=true, cols=predicted).
+
+    Requires predictions + labels in results/<model>_results.json. Models
+    trained before v8.3 (RF / CNN / CNN-SE) will show a 're-train to populate'
+    message; ResNet18 was re-trained after the predictions feature landed and
+    has the data.
+    """
+    st.subheader("Confusion matrices — True vs Predicted")
+
+    palette = [
+        ["#dcfce7", "#fef3c7"],   # NoCrack row: correct=green / wrong=amber
+        ["#fee2e2", "#dcfce7"],   # Crack row:   wrong=red    / correct=green
+    ]
+    color_no_crack = ["#86efac", "#fca5a5"]
+    color_crack = ["#fca5a5", "#86efac"]
+    label_text_color = [["#065f46", "#92400e"], ["#7f1d1d", "#065f46"]]
+
+    for model_name in ("rf", "cnn", "cnn_se", "resnet18"):
+        path = _PROJECT_ROOT / "results" / f"{model_name}_results.json"
+        if not path.exists():
+            continue
+        with open(path) as f:
+            d = json.load(f)
+        preds = d.get("predictions")
+        labels = d.get("labels")
+        with st.expander(f"**{model_name}** — Test accuracy {d['accuracy'] * 100:.2f}%"):
+            if preds is None or labels is None:
+                st.info(
+                    "Confusion matrix needs the `predictions` and `labels` arrays, "
+                    "which are saved by v8.3+ train.py. Re-train this model with "
+                    "`python -m src.train --model " + model_name + "` to populate."
+                )
+                continue
+
+            cm = confusion_matrix(labels, preds, num_classes=2)
+            tn, fp = int(cm[0, 0]), int(cm[0, 1])
+            fn, tp = int(cm[1, 0]), int(cm[1, 1])
+            total = tn + fp + fn + tp
+
+            # Render as a small Plotly heatmap
+            matrix = [[tn, fp], [fn, tp]]
+            cell_text = [
+                [f"<b>{tn}</b><br><span style='font-size:11px'>TN</span>",
+                 f"<b>{fp}</b><br><span style='font-size:11px'>FP</span>"],
+                [f"<b>{fn}</b><br><span style='font-size:11px'>FN</span>",
+                 f"<b>{tp}</b><br><span style='font-size:11px'>TP</span>"],
+            ]
+            fig = go.Figure(go.Heatmap(
+                z=[[0, 1], [2, 3]],
+                x=["Predicted NoCrack", "Predicted Crack"],
+                y=["True NoCrack", "True Crack"],
+                text=cell_text,
+                texttemplate="%{text}",
+                textfont={"size": 14},
+                colorscale=[
+                    [0.00, "#86efac"],   # TN green
+                    [0.33, "#86efac"],
+                    [0.34, "#fca5a5"],   # FP red
+                    [0.66, "#fca5a5"],
+                    [0.67, "#86efac"],   # FN red-on-green (more red for missed cracks)
+                    [1.00, "#86efac"],
+                ],
+                showscale=False,
+                zmin=0,
+                zmax=3,
+                hovertemplate="%{y} → %{x}<br>Count: %{text}<extra></extra>",
+            ))
+            fig.update_layout(
+                width=420, height=320,
+                margin=dict(l=80, r=20, t=40, b=60),
+                title=f"{model_name.upper()} Confusion Matrix (n={total})",
+            )
+            st.plotly_chart(fig, use_container_width=False)
+
+            # Side metrics
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("TP", tp)
+            c2.metric("TN", tn)
+            c3.metric("FP", fp)
+            c4.metric("FN", fn)
+            st.caption(
+                f"TP={tp}  TN={tn}  FP={fp}  FN={fn}  ·  Total test set: {total} samples"
+            )
+
+
 def render_about() -> None:
     with st.expander("About this project"):
         st.markdown(
@@ -414,6 +501,8 @@ st.markdown("---")
 render_comparison()
 st.markdown("---")
 render_metrics_breakdown()
+st.markdown("---")
+render_confusion_matrices()
 st.markdown("---")
 render_training_curves()
 st.markdown("---")

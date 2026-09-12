@@ -1,10 +1,11 @@
 """
 Streamlit demo for the concrete crack detection pipeline.
 
-Three sections:
+Four sections:
   1. Try it — upload an image, get a prediction with confidence
-  2. Model comparison — accuracy ladder across RF / CNN / ResNet18
-  3. Training curves — ResNet18 train vs validation accuracy per epoch
+  2. Where is the model looking? — Grad-CAM heatmap overlay on the upload
+  3. Model comparison — accuracy ladder across RF / CNN / ResNet18
+  4. Training curves — ResNet18 train vs validation accuracy per epoch
 
 Run locally:
     streamlit run app/streamlit_app.py
@@ -21,6 +22,7 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+import torch
 from PIL import Image
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -29,6 +31,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from src.compare import comparison_table, headline_improvement  # noqa: E402
 from src.data import PROJECT_ROOT as _PROJECT_ROOT  # noqa: E402
 from src.infer import predict  # noqa: E402
+from src.xai import gradcam_heatmap, overlay_heatmap  # noqa: E402
 
 
 st.set_page_config(
@@ -135,6 +138,59 @@ def render_upload_panel() -> None:
             f"Input size: {result['img_size']}×{result['img_size']} · "
             f"Device: MPS / CUDA / CPU auto"
         )
+
+    # Grad-CAM explanation
+    _render_gradcam(img, model, result)
+
+
+def _render_gradcam(
+    img: Image.Image,
+    model: torch.nn.Module,
+    result: dict,
+) -> None:
+    """Render Grad-CAM heatmap for the uploaded image, alongside the model output."""
+    st.markdown("---")
+    st.markdown("**Where is the model looking?** — Grad-CAM on `layer4`")
+
+    device = next(model.parameters()).device
+    img_size = int(result["img_size"])
+    img_resized = img.resize((img_size, img_size))
+    arr = (np.asarray(img_resized, dtype=np.float32).transpose(2, 0, 1) / 255.0)
+    mean = np.array([0.485, 0.456, 0.406], dtype=np.float32).reshape(3, 1, 1)
+    std = np.array([0.229, 0.224, 0.225], dtype=np.float32).reshape(3, 1, 1)
+    tensor = torch.from_numpy((arr - mean) / std).unsqueeze(0).float().to(device)
+
+    target_idx = 1 if result["label"] == "Crack" else 0
+
+    with st.spinner("Computing Grad-CAM..."):
+        try:
+            heatmap = gradcam_heatmap(
+                model, tensor, target_class=target_idx, target_layer="layer4",
+            )
+            overlay = overlay_heatmap(img, heatmap)
+        except Exception as exc:  # noqa: BLE001
+            st.warning(f"Grad-CAM unavailable for this image: {exc}")
+            return
+
+    # Render heatmap as RGB for st.image (no clamp=True needed)
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.cm as cm
+    heat_rgb = (cm.jet(np.clip(heatmap, 0.0, 1.0))[:, :, :3] * 255).astype(np.uint8)
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.image(img, caption="Original", use_container_width=True)
+    with col2:
+        st.image(heat_rgb, caption=f"Heatmap (target={result['label']})", use_container_width=True)
+    with col3:
+        st.image(overlay, caption="Overlay (α=0.45)", use_container_width=True)
+
+    st.caption(
+        f"Target class: **{result['label']}** · Layer: `layer4` (last residual block) · "
+        f"Red regions = strongest positive contribution. Confidence: "
+        f"{result['confidence'] * 100:.2f}%."
+    )
 
 
 def render_comparison() -> None:

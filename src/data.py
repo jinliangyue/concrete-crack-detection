@@ -53,11 +53,14 @@ def collect_files(
             bucket.extend(sorted(folder.glob("*.jpg")))
 
     if max_per_class is not None:
-        rng = np.random.default_rng(seed)
+        # Legacy np.random.choice matches the original paper's sampling semantics
+        # and gives reproducible results as long as the caller has seeded np.random
+        # (src.train.main does this before invoking collect_files).
+        np.random.seed(seed)
         if len(files_crack) > max_per_class:
-            files_crack = list(rng.choice(files_crack, max_per_class, replace=False))
+            files_crack = list(np.random.choice(files_crack, max_per_class, replace=False))
         if len(files_nocrack) > max_per_class:
-            files_nocrack = list(rng.choice(files_nocrack, max_per_class, replace=False))
+            files_nocrack = list(np.random.choice(files_nocrack, max_per_class, replace=False))
 
     return files_crack, files_nocrack
 

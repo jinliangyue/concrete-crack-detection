@@ -43,7 +43,7 @@ from src.models import build_cnn, build_resnet18, get_default_device
 # Per-model defaults that match the original experiments
 DEFAULTS: Dict[str, Dict[str, Any]] = {
     "rf":       {"img_size": 64,  "epochs": None, "lr": None,  "batch_size": None},
-    "cnn":      {"img_size": 96,  "epochs": 15,   "lr": 1e-3,  "batch_size": 32},
+    "cnn":      {"img_size": 96,  "epochs": 20,   "lr": 1e-3,  "batch_size": 32},
     "resnet18": {"img_size": 160, "epochs": 12,   "lr": 3e-4,  "batch_size": 16},
 }
 

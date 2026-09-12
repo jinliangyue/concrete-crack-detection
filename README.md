@@ -33,11 +33,13 @@ The CNN gap is a known reproducibility issue traced to RNG implementation differ
 
 ## Demo
 
-The Streamlit demo (`app/streamlit_app.py`) lets you:
+The Streamlit demo (`app/streamlit_app.py`) has five sections:
 
-- **Upload any concrete surface image** and get a real-time prediction with confidence
-- **See the accuracy ladder** across the three methods (read from JSON results)
-- **Browse training curves** for the ResNet18 model
+1. **Try it** — upload any concrete surface image, get a prediction with confidence
+2. **Where is the model looking?** — Grad-CAM heatmap on `layer4` overlays the regions that drove the decision
+3. **Model comparison** — accuracy ladder across the three methods, with pp gap to transfer learning
+4. **Per-class metrics** — collapsible tables of Precision / Recall / F1 for every model
+5. **Training curves** — Self-built CNN (dotted) vs ResNet18 (solid) validation curves overlaid
 
 ```bash
 streamlit run app/streamlit_app.py

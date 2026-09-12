@@ -306,6 +306,37 @@ def render_training_curves() -> None:
     st.caption(" · ".join(caption_parts))
 
 
+def render_metrics_breakdown() -> None:
+    """Per-class Precision / Recall / F1 for each trained model — three collapsible tables."""
+    st.subheader("Per-class metrics — Precision / Recall / F1")
+
+    for model_name in ("rf", "cnn", "resnet18"):
+        path = _PROJECT_ROOT / "results" / f"{model_name}_results.json"
+        if not path.exists():
+            continue
+        with open(path) as f:
+            d = json.load(f)
+        rep = d["report"]
+        df = pd.DataFrame(
+            [
+                ("NoCrack", rep["NoCrack"]["precision"], rep["NoCrack"]["recall"],
+                 rep["NoCrack"]["f1-score"], int(rep["NoCrack"]["support"])),
+                ("Crack",   rep["Crack"]["precision"],   rep["Crack"]["recall"],
+                 rep["Crack"]["f1-score"],   int(rep["Crack"]["support"])),
+                ("macro avg",   rep["macro avg"]["precision"],   rep["macro avg"]["recall"],
+                 rep["macro avg"]["f1-score"],   int(rep["macro avg"]["support"])),
+                ("weighted avg", rep["weighted avg"]["precision"], rep["weighted avg"]["recall"],
+                 rep["weighted avg"]["f1-score"], int(rep["weighted avg"]["support"])),
+            ],
+            columns=["Class", "Precision", "Recall", "F1", "Support"],
+        )
+        # Format percentages
+        for col in ("Precision", "Recall", "F1"):
+            df[col] = df[col].map(lambda v: f"{v * 100:.2f}%")
+        with st.expander(f"**{model_name}** — Test accuracy {d['accuracy'] * 100:.2f}%"):
+            st.dataframe(df, use_container_width=True, hide_index=True)
+
+
 def render_about() -> None:
     with st.expander("About this project"):
         st.markdown(
@@ -350,6 +381,8 @@ st.markdown(
 render_upload_panel()
 st.markdown("---")
 render_comparison()
+st.markdown("---")
+render_metrics_breakdown()
 st.markdown("---")
 render_training_curves()
 st.markdown("---")

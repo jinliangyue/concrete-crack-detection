@@ -1,10 +1,11 @@
 """
-Train one of three crack detection models on SDNET2018.
+Train one of four crack detection models on SDNET2018.
 
 Usage:
     python -m src.train --model rf       # Random Forest baseline  (~59%)
-    python -m src.train --model cnn      # Self-built 4-layer CNN  (~75%)
-    python -m src.train --model resnet18 # ResNet18 transfer learning (~85%)
+    python -m src.train --model cnn      # Self-built 4-layer CNN  (~76%)
+    python -m src.train --model cnn_se   # CNN + Squeeze-and-Excitation  (~?)
+    python -m src.train --model resnet18 # ResNet18 transfer learning (~86%)
 
 Outputs:
     models/crack_<model>_best.pt   — checkpoint (state_dict + config + history)
@@ -37,13 +38,14 @@ from src.data import (
     load_images,
     normalize_imagenet,
 )
-from src.models import build_cnn, build_resnet18, get_default_device
+from src.models import build_cnn, build_cnn_se, build_resnet18, get_default_device
 
 
 # Per-model defaults that match the original experiments
 DEFAULTS: Dict[str, Dict[str, Any]] = {
     "rf":       {"img_size": 64,  "epochs": None, "lr": None,  "batch_size": None},
     "cnn":      {"img_size": 96,  "epochs": 20,   "lr": 1e-3,  "batch_size": 32},
+    "cnn_se":   {"img_size": 96,  "epochs": 20,   "lr": 1e-3,  "batch_size": 32},
     "resnet18": {"img_size": 160, "epochs": 12,   "lr": 3e-4,  "batch_size": 16},
 }
 
@@ -189,8 +191,9 @@ def parse_args() -> argparse.Namespace:
         description="Train a crack detection model on SDNET2018.",
     )
     p.add_argument(
-        "--model", required=True, choices=["rf", "cnn", "resnet18"],
-        help="rf = random forest baseline; cnn = self-built 4-layer CNN; resnet18 = ImageNet transfer.",
+        "--model", required=True, choices=["rf", "cnn", "cnn_se", "resnet18"],
+        help="rf = random forest baseline; cnn = self-built 4-layer CNN; "
+             "cnn_se = CNN + SE-Blocks; resnet18 = ImageNet transfer.",
     )
     p.add_argument(
         "--max-per-class", type=int, default=4000,
@@ -292,6 +295,8 @@ def main() -> int:
 
         if args.model == "cnn":
             model = build_cnn(img_size=img_size).to(device)
+        elif args.model == "cnn_se":
+            model = build_cnn_se(img_size=img_size).to(device)
         else:
             model = build_resnet18(pretrained=True).to(device)
         n_params = sum(p.numel() for p in model.parameters())

@@ -57,6 +57,15 @@ def load_cnn_results() -> dict | None:
         return json.load(f)
 
 
+@st.cache_data
+def load_cnn_se_results() -> dict | None:
+    path = _PROJECT_ROOT / "results" / "cnn_se_results.json"
+    if not path.exists():
+        return None
+    with open(path) as f:
+        return json.load(f)
+
+
 @st.cache_resource
 def load_resnet18_model():
     """Load ResNet18 checkpoint once and cache. Avoids re-loading on every upload."""
@@ -218,65 +227,85 @@ def render_comparison() -> None:
     best = max(rows, key=lambda r: r["accuracy_pct"])
     rf_acc = rows[0]["accuracy_pct"]
     cnn_acc = rows[1]["accuracy_pct"]
-    resnet_acc = rows[2]["accuracy_pct"]
+    cnn_se_acc = rows[2]["accuracy_pct"]
+    resnet_acc = rows[3]["accuracy_pct"]
     st.success(
         f"🏆 **{best['model']}** wins with **{best['accuracy_pct']:.2f}%** test accuracy. "
-        f"Transfer learning beats Random Forest by **{resnet_acc - rf_acc:.2f} percentage points** "
-        f"and the self-built CNN by **{resnet_acc - cnn_acc:.2f} percentage points**."
+        f"Transfer learning beats Random Forest by **{resnet_acc - rf_acc:.2f}pp**, "
+        f"the self-built CNN by **{resnet_acc - cnn_acc:.2f}pp**, "
+        f"and CNN+SE by **{resnet_acc - cnn_se_acc:.2f}pp**. "
+        f"SE-Block channel attention adds **{cnn_se_acc - cnn_acc:.2f}pp** over the plain CNN."
     )
 
-    # Bar chart
     fig = go.Figure(go.Bar(
         x=[r["accuracy_pct"] for r in rows],
         y=[r["model"] for r in rows],
         orientation="h",
-        marker_color=["#94a3b8", "#3b82f6", "#1e40af"],
+        marker_color=["#94a3b8", "#60a5fa", "#3b82f6", "#1e40af"],
         text=[f"{r['accuracy_pct']:.2f}%" for r in rows],
         textposition="outside",
     ))
     fig.update_layout(
         xaxis_title="Test accuracy (%)",
         xaxis_range=[0, 100],
-        height=280,
+        height=320,
         margin=dict(l=10, r=80, t=10, b=30),
     )
     st.plotly_chart(fig, use_container_width=True)
 
 
 def render_training_curves() -> None:
-    st.subheader("Training curves — Self-built CNN vs ResNet18")
+    st.subheader("Training curves — CNN / CNN+SE / ResNet18")
     res = load_resnet18_results()
     cnn = load_cnn_results()
+    cnn_se = load_cnn_se_results()
 
     fig = go.Figure()
     colour_map = {
-        ("cnn", "train"):     "#60a5fa",
-        ("cnn", "val"):       "#fb923c",
+        ("cnn", "train"):      "#60a5fa",
+        ("cnn", "val"):        "#fb923c",
+        ("cnn_se", "train"):   "#a78bfa",
+        ("cnn_se", "val"):     "#facc15",
         ("resnet18", "train"): "#1e40af",
         ("resnet18", "val"):   "#dc2626",
     }
     legend_name = {
-        ("cnn", "train"): "CNN train",
-        ("cnn", "val"):   "CNN val",
+        ("cnn", "train"):      "CNN train",
+        ("cnn", "val"):        "CNN val",
+        ("cnn_se", "train"):   "CNN+SE train",
+        ("cnn_se", "val"):     "CNN+SE val",
         ("resnet18", "train"): "ResNet18 train",
         ("resnet18", "val"):   "ResNet18 val",
     }
 
+    # CNN (dotted)
     if cnn is not None:
         h = cnn["history"]
         for split in ("train", "val"):
-            key = "train_acc" if split == "train" else "val_acc"
             fig.add_trace(go.Scatter(
-                y=h[key], mode="lines+markers", name=legend_name[("cnn", split)],
+                y=h["train_acc" if split == "train" else "val_acc"],
+                mode="lines+markers", name=legend_name[("cnn", split)],
                 line=dict(color=colour_map[("cnn", split)], width=2, dash="dot"),
                 marker=dict(size=6),
             ))
 
+    # CNN+SE (dashed)
+    if cnn_se is not None:
+        h = cnn_se["history"]
+        for split in ("train", "val"):
+            fig.add_trace(go.Scatter(
+                y=h["train_acc" if split == "train" else "val_acc"],
+                mode="lines+markers", name=legend_name[("cnn_se", split)],
+                line=dict(color=colour_map[("cnn_se", split)], width=2, dash="dash"),
+                marker=dict(size=6),
+            ))
+
+    # ResNet18 (solid)
     h = res["history"]
     for split in ("train", "val"):
-        key = "train_acc" if split == "train" else "val_acc"
         fig.add_trace(go.Scatter(
-            y=h[key], mode="lines+markers", name=legend_name[("resnet18", split)],
+            y=h["train_acc" if split == "train" else "val_acc"],
+            mode="lines+markers", name=legend_name[("resnet18", split)],
             line=dict(color=colour_map[("resnet18", split)], width=2.5),
             marker=dict(size=7),
         ))
@@ -285,20 +314,22 @@ def render_training_curves() -> None:
         xaxis_title="Epoch",
         yaxis_title="Accuracy",
         yaxis_range=[0.5, 1.0],
-        height=420,
+        height=460,
         margin=dict(l=10, r=10, t=10, b=40),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
     st.plotly_chart(fig, use_container_width=True)
 
     caption_parts = [
-        f"**ResNet18** best val {res['best_val_acc'] * 100:.2f}% / final test {res['accuracy'] * 100:.2f}% "
-        f"(solid lines, {len(res['history']['val_acc'])} epochs)"
+        f"**ResNet18** best val {res['best_val_acc'] * 100:.2f}% / final test {res['accuracy'] * 100:.2f}% (solid, {len(res['history']['val_acc'])} epochs)"
     ]
+    if cnn_se is not None:
+        caption_parts.append(
+            f"**CNN+SE** best val {cnn_se['best_val_acc'] * 100:.2f}% / final test {cnn_se['accuracy'] * 100:.2f}% (dashed, {len(cnn_se['history']['val_acc'])} epochs)"
+        )
     if cnn is not None:
         caption_parts.append(
-            f"**CNN** best val {cnn['best_val_acc'] * 100:.2f}% / final test {cnn['accuracy'] * 100:.2f}% "
-            f"(dotted lines, {len(cnn['history']['val_acc'])} epochs)"
+            f"**CNN** best val {cnn['best_val_acc'] * 100:.2f}% / final test {cnn['accuracy'] * 100:.2f}% (dotted, {len(cnn['history']['val_acc'])} epochs)"
         )
     caption_parts.append(
         f"Train set: {res['config']['n_train']} · Test set: {res['config']['n_test']}"
@@ -307,10 +338,10 @@ def render_training_curves() -> None:
 
 
 def render_metrics_breakdown() -> None:
-    """Per-class Precision / Recall / F1 for each trained model — three collapsible tables."""
+    """Per-class Precision / Recall / F1 for each trained model — four collapsible tables."""
     st.subheader("Per-class metrics — Precision / Recall / F1")
 
-    for model_name in ("rf", "cnn", "resnet18"):
+    for model_name in ("rf", "cnn", "cnn_se", "resnet18"):
         path = _PROJECT_ROOT / "results" / f"{model_name}_results.json"
         if not path.exists():
             continue

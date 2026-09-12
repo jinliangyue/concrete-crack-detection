@@ -14,10 +14,11 @@ A clean three-way ablation on the SDNET2018 concrete crack dataset, comparing a 
 | Method | Test accuracy | Train / Test | Parameters |
 |---|---:|---|---:|
 | Random Forest (64×64 grayscale, 200 trees) | **59.42%** | 6,800 / 1,200 | — |
-| Self-built CNN (4 conv blocks, 96×96 input, CosineAnnealingLR, 20 epochs) | **76.25%** | 6,800 / 1,200 | 5.3M |
+| Self-built CNN (4 conv blocks, 96×96 input, CosineAnnealingLR, 20 epochs) | **76.25%** | 6,800 / 1,200 | 5.30M |
+| **CNN + SE-Blocks** (channel attention, same backbone, 96×96) | **77.58%** | 6,800 / 1,200 | **5.32M** (+0.23%) |
 | **ResNet18 (ImageNet transfer, 160×160 input)** | **86.58%** | 6,800 / 1,200 | 11M |
 
-**Headline:** ResNet18 with ImageNet pre-training beats the Random Forest baseline by **27.16 percentage points** and the self-built CNN by **10.33 percentage points**, with the same training set and identical evaluation protocol. The transfer-learning gap is the story.
+**Headline:** ResNet18 with ImageNet pre-training beats the Random Forest baseline by **27.16 percentage points**, the self-built CNN by **10.33 percentage points**, and CNN+SE by **9.00 percentage points**. CNN+SE channel attention adds **+1.33pp** over the plain CNN for only **+12,296 parameters (+0.23%)**. The transfer-learning gap is still the story — but the within-CNN gap shows that architectural innovations inside the same parameter budget can also move the needle.
 
 ### Comparison with the published paper
 
@@ -31,8 +32,14 @@ This project started as a comparison study for the CAHEML 2026 conference. The o
 
 **CNN reproduction fix — two-step (2026-09-12):**
 - v1 (`670b076`): added `optim.lr_scheduler.CosineAnnealingLR(T_max=epochs)` to `src/train.py`. CNN 67.27% → 72.83% (+5.56pp), paper gap −8.60pp → −3.04pp.
-- v2 (latest): switched `collect_files` in `src/data.py` from `np.random.default_rng` back to the legacy `np.random.choice` used by the paper, and bumped CNN epochs 15 → 20. CNN 72.83% → **76.25%** (+3.42pp), paper gap inverted to **+0.38pp — CNN now slightly exceeds the published baseline**.
+- v2 (`db36e76`): switched `collect_files` in `src/data.py` from `np.random.default_rng` back to the legacy `np.random.choice` used by the paper, and bumped CNN epochs 15 → 20. CNN 72.83% → **76.25%** (+3.42pp), paper gap inverted to **+0.38pp — CNN now slightly exceeds the published baseline**.
 - ResNet18 has always exceeded the paper. The headline "transfer learning decisively beats both baselines" remains unchanged.
+
+**Fourth model — CNN + SE-Blocks (`db36e76` follow-up):**
+- Added `SEBlock` class (Squeeze-and-Excitation channel attention, Hu et al. 2020) to `src/models.py`, one per conv block.
+- New `build_cnn_se` factory + `--model cnn_se` in train.py, 5.32M params (+12,296 vs CNN).
+- CNN+SE test accuracy: **77.58%** (+1.33pp over plain CNN for +0.23% params) — channel attention helps even at this scale.
+- ResNet18 still wins by 9.00pp — transfer learning remains the dominant lever.
 
 ## Demo
 
@@ -40,9 +47,9 @@ The Streamlit demo (`app/streamlit_app.py`) has five sections:
 
 1. **Try it** — upload any concrete surface image, get a prediction with confidence
 2. **Where is the model looking?** — Grad-CAM heatmap on `layer4` overlays the regions that drove the decision
-3. **Model comparison** — accuracy ladder across the three methods, with pp gap to transfer learning
+3. **Model comparison** — accuracy ladder across the **four** methods (RF / CNN / CNN+SE / ResNet18), with pp gap to transfer learning and SE-block delta
 4. **Per-class metrics** — collapsible tables of Precision / Recall / F1 for every model
-5. **Training curves** — Self-built CNN (dotted) vs ResNet18 (solid) validation curves overlaid
+5. **Training curves** — CNN (dotted) vs CNN+SE (dashed) vs ResNet18 (solid) validation curves overlaid
 
 ```bash
 streamlit run app/streamlit_app.py

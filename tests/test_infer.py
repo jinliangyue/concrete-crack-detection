@@ -21,8 +21,8 @@ from src.compare import (
 )
 
 
-def test_legacy_numbers_dict_has_all_three_models():
-    assert set(LEGACY_NUMBERS.keys()) == {"rf", "cnn", "resnet18"}
+def test_legacy_numbers_dict_has_all_four_models():
+    assert set(LEGACY_NUMBERS.keys()) == {"rf", "cnn", "cnn_se", "resnet18"}
 
 
 def test_legacy_numbers_rf_around_59_percent():
@@ -35,11 +35,11 @@ def test_legacy_numbers_resnet18_above_85_percent():
     assert LEGACY_NUMBERS["resnet18"]["accuracy"] > 0.85
 
 
-def test_comparison_table_has_three_rows():
+def test_comparison_table_has_four_rows():
     rows = comparison_table()
-    assert len(rows) == 3
+    assert len(rows) == 4
     keys = [r["key"] for r in rows]
-    assert keys == ["rf", "cnn", "resnet18"]
+    assert keys == ["rf", "cnn", "cnn_se", "resnet18"]
 
 
 def test_comparison_table_columns():
@@ -66,7 +66,7 @@ def test_headline_improvement_returns_arrow_format():
     s = headline_improvement()
     assert " → " in s
     parts = s.split(" → ")
-    assert len(parts) == 3
+    assert len(parts) == 4
     for p in parts:
         # Each part should be a percentage with %
         assert p.endswith("%")
@@ -76,9 +76,9 @@ def test_headline_improvement_returns_arrow_format():
 def test_accuracy_ladder_is_strictly_increasing_or_breaking_legend():
     """RF < CNN < ResNet18 in headline numbers (reproducibility note: CNN may
     deviate slightly; the ResNet18 > RF invariant must always hold)."""
-    ladder = [LEGACY_NUMBERS[k]["accuracy"] for k in ("rf", "cnn", "resnet18")]
-    assert ladder[0] < ladder[2], "RF must be below ResNet18"
-    assert ladder[2] > 0.85, "ResNet18 must beat 85%"
+    ladder = [LEGACY_NUMBERS[k]["accuracy"] for k in ("rf", "cnn", "cnn_se", "resnet18")]
+    assert ladder[0] < ladder[3], "RF must be below ResNet18"
+    assert ladder[3] > 0.85, "ResNet18 must beat 85%"
 
 
 def test_infer_module_imports():

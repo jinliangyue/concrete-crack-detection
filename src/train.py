@@ -99,6 +99,8 @@ def train_random_forest(
         "accuracy": float(acc),
         "report": report,
         "history": None,
+        "predictions": [int(p) for p in preds],
+        "labels": [int(l) for l in y_test],
     }
 
 
@@ -326,10 +328,11 @@ def main() -> int:
         metrics["history"] = result["history"]
         metrics["report"] = result["report"]
         metrics["checkpoint"] = str(ckpt_path.relative_to(PROJECT_ROOT))
-        # Save predictions + labels for confusion matrix / ROC analysis (v8.3+)
-        if "predictions" in result and "labels" in result:
-            metrics["predictions"] = result["predictions"]
-            metrics["labels"] = result["labels"]
+
+    # Save predictions + labels for confusion matrix / ROC analysis (v8.3+, all models)
+    if "predictions" in result and "labels" in result:
+        metrics["predictions"] = result["predictions"]
+        metrics["labels"] = result["labels"]
 
     # Persist JSON metrics
     out_path = results_dir / f"{args.model}_results.json"

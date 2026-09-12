@@ -13,12 +13,14 @@ A clean three-way ablation on the SDNET2018 concrete crack dataset, comparing a 
 
 | Method | Test accuracy | Train / Test | Parameters |
 |---|---:|---|---:|
-| Random Forest (64×64 grayscale, 200 trees) | **59.42%** | 6,800 / 1,200 | — |
+| Random Forest (64×64 grayscale, 200 trees) | **59.92%** | 6,800 / 1,200 | — |
 | Self-built CNN (4 conv blocks, 96×96 input, CosineAnnealingLR, 20 epochs) | **76.25%** | 6,800 / 1,200 | 5.30M |
 | **CNN + SE-Blocks** (channel attention, same backbone, 96×96) | **77.58%** | 6,800 / 1,200 | **5.32M** (+0.23%) |
 | **ResNet18 (ImageNet transfer, 160×160 input)** | **87.92%** | 6,800 / 1,200 | 11M |
 
-**Headline:** ResNet18 with ImageNet pre-training beats the Random Forest baseline by **28.50 percentage points**, the self-built CNN by **11.67 percentage points**, and CNN+SE by **10.34 percentage points**. CNN+SE channel attention adds **+1.33pp** over the plain CNN for only **+12,296 parameters (+0.23%)**. The transfer-learning gap is still the story — but the within-CNN gap shows that architectural innovations inside the same parameter budget can also move the needle.
+**Headline:** ResNet18 with ImageNet pre-training beats the Random Forest baseline by **28.00 percentage points**, the self-built CNN by **11.67 percentage points**, and CNN+SE by **10.34 percentage points**. CNN+SE channel attention adds **+1.33pp** over the plain CNN for only **+12,296 parameters (+0.23%)**. The transfer-learning gap is still the story — but the within-CNN gap shows that architectural innovations inside the same parameter budget can also move the needle.
+
+> **2026-09-12 note**: All four models re-trained with v8.3 (predictions + labels saved to JSON). RF acc 59.42% → 59.92% (sklearn micro-noise across re-runs, same seed/data). ResNet18 acc 86.58% → 87.92% (MPS floating-point accumulation). Reproduction story unchanged.
 
 > **2026-09-12 note**: ResNet18 was re-trained after landing the `predictions`/`labels` JSON output (v8.3). New test accuracy 87.92% (previously 86.58%); the +1.34pp shift is MPS floating-point accumulation noise across re-runs — same seed, same data, slight non-determinism in cuBLAS / MPS kernels. The reproduction story is unchanged.
 

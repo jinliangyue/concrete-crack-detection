@@ -47,6 +47,16 @@ def load_resnet18_results() -> dict:
         return json.load(f)
 
 
+@st.cache_data
+def load_cnn_results() -> dict | None:
+    """CNN results may be missing on a fresh checkout — return None gracefully."""
+    path = _PROJECT_ROOT / "results" / "cnn_results.json"
+    if not path.exists():
+        return None
+    with open(path) as f:
+        return json.load(f)
+
+
 @st.cache_resource
 def load_resnet18_model():
     """Load ResNet18 checkpoint once and cache. Avoids re-loading on every upload."""
@@ -234,37 +244,66 @@ def render_comparison() -> None:
 
 
 def render_training_curves() -> None:
-    st.subheader("ResNet18 training curves")
+    st.subheader("Training curves — Self-built CNN vs ResNet18")
     res = load_resnet18_results()
-    history = res["history"]
+    cnn = load_cnn_results()
 
     fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        y=history["train_acc"], mode="lines+markers", name="Train",
-        line=dict(color="#3b82f6", width=2.5),
-        marker=dict(size=7),
-    ))
-    fig.add_trace(go.Scatter(
-        y=history["val_acc"], mode="lines+markers", name="Validation",
-        line=dict(color="#ef4444", width=2.5),
-        marker=dict(size=7),
-    ))
+    colour_map = {
+        ("cnn", "train"):     "#60a5fa",
+        ("cnn", "val"):       "#fb923c",
+        ("resnet18", "train"): "#1e40af",
+        ("resnet18", "val"):   "#dc2626",
+    }
+    legend_name = {
+        ("cnn", "train"): "CNN train",
+        ("cnn", "val"):   "CNN val",
+        ("resnet18", "train"): "ResNet18 train",
+        ("resnet18", "val"):   "ResNet18 val",
+    }
+
+    if cnn is not None:
+        h = cnn["history"]
+        for split in ("train", "val"):
+            key = "train_acc" if split == "train" else "val_acc"
+            fig.add_trace(go.Scatter(
+                y=h[key], mode="lines+markers", name=legend_name[("cnn", split)],
+                line=dict(color=colour_map[("cnn", split)], width=2, dash="dot"),
+                marker=dict(size=6),
+            ))
+
+    h = res["history"]
+    for split in ("train", "val"):
+        key = "train_acc" if split == "train" else "val_acc"
+        fig.add_trace(go.Scatter(
+            y=h[key], mode="lines+markers", name=legend_name[("resnet18", split)],
+            line=dict(color=colour_map[("resnet18", split)], width=2.5),
+            marker=dict(size=7),
+        ))
+
     fig.update_layout(
         xaxis_title="Epoch",
         yaxis_title="Accuracy",
         yaxis_range=[0.5, 1.0],
-        height=380,
+        height=420,
         margin=dict(l=10, r=10, t=10, b=40),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
     st.plotly_chart(fig, use_container_width=True)
 
-    st.caption(
-        f"Best validation: {res['best_val_acc'] * 100:.2f}% · "
-        f"Final test: {res['accuracy'] * 100:.2f}% · "
-        f"Training set: {res['config']['n_train']} · "
-        f"Test set: {res['config']['n_test']}"
+    caption_parts = [
+        f"**ResNet18** best val {res['best_val_acc'] * 100:.2f}% / final test {res['accuracy'] * 100:.2f}% "
+        f"(solid lines, {len(res['history']['val_acc'])} epochs)"
+    ]
+    if cnn is not None:
+        caption_parts.append(
+            f"**CNN** best val {cnn['best_val_acc'] * 100:.2f}% / final test {cnn['accuracy'] * 100:.2f}% "
+            f"(dotted lines, {len(cnn['history']['val_acc'])} epochs)"
+        )
+    caption_parts.append(
+        f"Train set: {res['config']['n_train']} · Test set: {res['config']['n_test']}"
     )
+    st.caption(" · ".join(caption_parts))
 
 
 def render_about() -> None:

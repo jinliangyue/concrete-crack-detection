@@ -5,7 +5,7 @@
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://github.com/jinliangyue/concrete-crack-detection/blob/main/runtime.txt)
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://concrete-crack-detection.streamlit.app/)
 
-> 在 SDNET2018（56,092 张真实混凝土桥面/路面/墙体图像）上的迁移学习消融对比——**Random Forest (59.42%) → 自建 CNN (67.27%) → ResNet18 迁移学习 (86.58%)**。模型 + Web 演示 + 完整复现命令。
+> 在 SDNET2018（56,092 张真实混凝土桥面/路面/墙体图像）上的迁移学习消融对比——**Random Forest (59.92%) → 自建 CNN (76.25%) → CNN+SE 通道注意力 (77.58%) → ResNet18 迁移学习 (87.92%)**。模型 + Web 演示 + 完整复现命令。
 
 A clean three-way ablation on the SDNET2018 concrete crack dataset, comparing a hand-crafted feature baseline (Random Forest), a self-built CNN trained from scratch, and a pre-trained ResNet18 with transfer learning. Built end-to-end on Apple Silicon (MPS GPU) — no cloud GPU needed.
 
@@ -23,6 +23,16 @@ A clean three-way ablation on the SDNET2018 concrete crack dataset, comparing a 
 > **2026-09-12 note**: All four models re-trained with v8.3 (predictions + labels saved to JSON). RF acc 59.42% → 59.92% (sklearn micro-noise across re-runs, same seed/data). ResNet18 acc 86.58% → 87.92% (MPS floating-point accumulation). Reproduction story unchanged.
 
 > **2026-09-12 note**: ResNet18 was re-trained after landing the `predictions`/`labels` JSON output (v8.3). New test accuracy 87.92% (previously 86.58%); the +1.34pp shift is MPS floating-point accumulation noise across re-runs — same seed, same data, slight non-determinism in cuBLAS / MPS kernels. The reproduction story is unchanged.
+
+### Statistical robustness (K-fold cross-validation)
+
+The headline numbers above are single stratified 85/15 splits at `max-per-class=4000` — the same protocol the original paper used. For "is this effect real or a lucky split?" questions, the repo also implements `StratifiedKFold` 5-fold cross-validation via `--folds N`.
+
+- **Quick demo (~2 min):** `bash scripts/run_kfold_demo.sh` runs RF 5-fold on 1000 images.
+- **Full demo (~15 min, includes CNN+SE + ResNet18):** `bash scripts/run_kfold_demo.sh --all`
+- **Single model:** `python3 -m src.train --model <name> --folds 5` writes `results/<model>_kfold.json` (does **not** overwrite the single-fold JSON).
+
+See `docs/K_FOLD.md` for why the single-fold number remains the headline (comparison anchor with the paper and the standard rebuttal), how to interpret the per-fold vs aggregated metrics, and when the additional ~50-min ResNet18 K-fold run is worth it.
 
 ### Comparison with the published paper
 
@@ -74,6 +84,12 @@ python -m src.train --model rf        # ~30s, baseline
 python -m src.train --model cnn       # ~5 min on MPS GPU
 python -m src.train --model resnet18  # ~10 min on MPS GPU
 
+# 3b. (Optional) 5-fold cross-validation on a small subset for K-fold
+#     pipeline sanity. Single-fold numbers above are the headline; see
+#     docs/K_FOLD.md for when K-fold is worth the extra wall time.
+bash scripts/run_kfold_demo.sh        # ~2 min total
+bash scripts/run_kfold_demo.sh --all  # ~15 min, includes CNN+SE + ResNet18
+
 # 4. Run tests
 pip install -r requirements-dev.txt
 pytest tests/ -v
@@ -89,29 +105,56 @@ Training outputs are persisted to `results/<model>_results.json` (metrics + hist
 ```
 concrete-crack-detection/
 ├── README.md                          (this file)
+├── LICENSE                            MIT
 ├── runtime.txt                        Python version pin
 ├── requirements.txt                   runtime deps
 ├── requirements-dev.txt               pytest for tests
 ├── .github/workflows/test.yml         CI: Python 3.9 + smoke tests on push
 ├── app/
-│   └── streamlit_app.py               Streamlit demo (upload + compare + curves)
+│   └── streamlit_app.py               Streamlit demo (6 sections: upload + Grad-CAM + compare + per-class + confusion + curves)
 ├── src/
 │   ├── data.py                        SDNET2018 file collection + image loading
-│   ├── models.py                      CNN + ResNet18 model definitions
-│   ├── train.py                       Unified training CLI (rf / cnn / resnet18)
+│   ├── models.py                      build_cnn / build_cnn_se / build_resnet18 / build_model
+│   ├── train.py                       Unified training CLI (rf / cnn / cnn_se / resnet18)
 │   ├── infer.py                       Single-image inference helper
-│   └── compare.py                     Results table + headline number generator
-├── tests/
+│   ├── compare.py                     Results table + headline number generator
+│   ├── confusion.py                   Confusion matrix + FPR/FNR computation (v5)
+│   └── xai.py                         Grad-CAM hook on layer4 (v5)
+├── tests/                             7 test files · pytest
 │   ├── test_data.py                   dataset contract (file counts, schema)
 │   ├── test_models.py                 model forward shape + parameter count
-│   └── test_infer.py                  inference output range
+│   ├── test_infer.py                  inference output range (4 models)
+│   ├── test_confusion.py              confusion matrix + FPR/FNR (v5)
+│   ├── test_xai.py                    Grad-CAM output shape (v5)
+│   ├── test_run_cross_domain.py       per-surface cross-domain benchmark (cross-domain commit)
+│   └── conftest.py
 ├── data/
 │   └── DATA_Maguire_20180517_ALL/SDNET2018/  (56,092 images, gitignored)
 ├── models/
-│   └── crack_<model>_best.pt          trained checkpoints (gitignored)
+│   ├── crack_cnn_best.pt              5.30M params
+│   ├── crack_cnn_se_best.pt           5.32M params
+│   ├── crack_resnet18_best.pt         11M params
+│   └── crack_cnn.pt                   legacy 75.87% reference
 ├── results/
-│   └── <model>_results.json           metrics + history
-└── docs/                              project documentation
+│   ├── rf_results.json                59.92% acc
+│   ├── cnn_results.json               76.25% acc
+│   ├── cnn_se_results.json            77.58% acc
+│   ├── resnet18_results.json          87.92% acc
+│   └── cross_domain_v1.json          per-surface benchmark (cross-domain commit)
+├── scripts/
+│   └── run_kfold_demo.sh              Quick K-fold CV demo (~2 min on 1000 images)
+├── docs/
+│   └── K_FOLD.md                      Why single-fold is the headline + how to run K-fold
+├── P0_Evidence/                       Standard rebuttal evidence (5a51a05)
+│   ├── README.md                      P0 task description + 4-model FPR/FNR table + verification formulas
+│   ├── metrics/                       final_metrics.csv + final_metrics.md
+│   ├── confusion_matrix/              5 PNGs (1 merged + 4 single)
+│   ├── demo/                          runtime_verification.md + samples/
+│   └── reproducibility/               environment.md
+├── benchmark/                         per-surface cross-domain scripts
+├── docs/                              project documentation
+├── configs/ notebooks/ scripts/       placeholder directories
+└── CAHEML2026_论文{初稿,中文对照,提纲}.md  historical paper materials
 ```
 
 ## Dataset
@@ -162,4 +205,4 @@ MIT — see [LICENSE](LICENSE).
 
 ## Author
 
-jinliangyue (pen-name 十八) — civil engineering senior, Ningxia Institute of Technology. Kaggle Titanic Top 35% (0.7751). Interested in ML applications for structural health monitoring.
+jinliangyue (pen-name 十八) — civil engineering senior, Ningxia Institute of Technology. Interested in ML applications for structural health monitoring.

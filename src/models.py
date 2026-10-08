@@ -120,17 +120,69 @@ def build_resnet18(pretrained: bool = True) -> nn.Module:
     return model
 
 
+def _swap_classifier(model: nn.Module, in_features: int) -> nn.Module:
+    """Replace ImageNet 1000-class head with 2-class classifier head.
+
+    Works for any torchvision ResNet / EfficientNet / MobileNet whose final
+    layer is a single `nn.Linear` taking in_features.
+    """
+    model.fc = nn.Sequential(nn.Dropout(0.5), nn.Linear(in_features, 2))
+    return model
+
+
+def build_resnet50(pretrained: bool = True) -> nn.Module:
+    """ResNet50 with ImageNet pre-training and a 2-class classifier head.
+
+    ~25M params — a heavier cousin of ResNet18 used to test whether the crack
+    detection task rewards more backbone capacity. Default fc head swapped
+    out for Dropout(0.5) -> Linear(2048, 2).
+    """
+    model = models.resnet50(weights="IMAGENET1K_V2" if pretrained else None)
+    return _swap_classifier(model, in_features=2048)
+
+
+def build_efficientnet_b0(pretrained: bool = True) -> nn.Module:
+    """EfficientNet-B0 with ImageNet pre-training and a 2-class classifier head.
+
+    ~5M params — similar parameter budget to the self-built CNN but with
+    a compound-scaled, MBConv-heavy backbone. Lets us test whether
+    architectural innovation inside a small parameter budget (EfficientNet-B0)
+    beats the hand-crafted 4-conv-block CNN.
+    """
+    model = models.efficientnet_b0(weights="IMAGENET1K_V1" if pretrained else None)
+    return _swap_classifier(model, in_features=1280)
+
+
+def build_mobilenetv3_large(pretrained: bool = True) -> nn.Module:
+    """MobileNetV3-Large with ImageNet pre-training and a 2-class classifier head.
+
+    ~5.4M params — designed for mobile deployment (latency-aware NAS).
+    Useful as a baseline for the "model size vs accuracy" tradeoff question
+    and a future TFLite / CoreML deployment target.
+    """
+    model = models.mobilenet_v3_large(weights="IMAGENET1K_V2" if pretrained else None)
+    return _swap_classifier(model, in_features=1280)
+
+
 def build_model(name: str, img_size: int = 96) -> nn.Module:
-    """Factory for the four supported model architectures."""
+    """Factory for the supported model architectures."""
     if name == "cnn":
         return build_cnn(img_size=img_size)
     elif name == "cnn_se":
         return build_cnn_se(img_size=img_size)
     elif name == "resnet18":
         return build_resnet18()
+    elif name == "resnet50":
+        return build_resnet50()
+    elif name == "efficientnet_b0":
+        return build_efficientnet_b0()
+    elif name == "mobilenetv3_large":
+        return build_mobilenetv3_large()
     else:
         raise ValueError(
-            f"Unknown model name: {name!r} (expected 'cnn', 'cnn_se', or 'resnet18')"
+            f"Unknown model name: {name!r} (expected one of "
+            f"'cnn', 'cnn_se', 'resnet18', 'resnet50', 'efficientnet_b0', "
+            f"'mobilenetv3_large')"
         )
 
 

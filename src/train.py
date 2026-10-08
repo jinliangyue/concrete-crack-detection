@@ -38,15 +38,27 @@ from src.data import (
     load_images,
     normalize_imagenet,
 )
-from src.models import build_cnn, build_cnn_se, build_resnet18, get_default_device
+from src.kfold import aggregate_folds, make_kfold_indices, per_fold_metrics
+from src.models import (
+    build_cnn,
+    build_cnn_se,
+    build_efficientnet_b0,
+    build_mobilenetv3_large,
+    build_resnet18,
+    build_resnet50,
+    get_default_device,
+)
 
 
 # Per-model defaults that match the original experiments
 DEFAULTS: Dict[str, Dict[str, Any]] = {
-    "rf":       {"img_size": 64,  "epochs": None, "lr": None,  "batch_size": None},
-    "cnn":      {"img_size": 96,  "epochs": 20,   "lr": 1e-3,  "batch_size": 32},
-    "cnn_se":   {"img_size": 96,  "epochs": 20,   "lr": 1e-3,  "batch_size": 32},
-    "resnet18": {"img_size": 160, "epochs": 12,   "lr": 3e-4,  "batch_size": 16},
+    "rf":                 {"img_size": 64,  "epochs": None, "lr": None,  "batch_size": None},
+    "cnn":                {"img_size": 96,  "epochs": 20,   "lr": 1e-3,  "batch_size": 32},
+    "cnn_se":             {"img_size": 96,  "epochs": 20,   "lr": 1e-3,  "batch_size": 32},
+    "resnet18":           {"img_size": 160, "epochs": 12,   "lr": 3e-4,  "batch_size": 16},
+    "resnet50":           {"img_size": 160, "epochs": 12,   "lr": 3e-4,  "batch_size": 16},
+    "efficientnet_b0":    {"img_size": 160, "epochs": 12,   "lr": 3e-4,  "batch_size": 16},
+    "mobilenetv3_large":  {"img_size": 160, "epochs": 12,   "lr": 3e-4,  "batch_size": 16},
 }
 
 
@@ -195,9 +207,12 @@ def parse_args() -> argparse.Namespace:
         description="Train a crack detection model on SDNET2018.",
     )
     p.add_argument(
-        "--model", required=True, choices=["rf", "cnn", "cnn_se", "resnet18"],
+        "--model", required=True,
+        choices=["rf", "cnn", "cnn_se", "resnet18", "resnet50",
+                 "efficientnet_b0", "mobilenetv3_large"],
         help="rf = random forest baseline; cnn = self-built 4-layer CNN; "
-             "cnn_se = CNN + SE-Blocks; resnet18 = ImageNet transfer.",
+             "cnn_se = CNN + SE-Blocks; resnet18/50 = ImageNet transfer; "
+             "efficientnet_b0 / mobilenetv3_large = compound-scaled / mobile backbones.",
     )
     p.add_argument(
         "--max-per-class", type=int, default=4000,
@@ -218,6 +233,11 @@ def parse_args() -> argparse.Namespace:
                    help="Comma-separated surfaces to load (D, P, W).")
     p.add_argument("--out-dir", default=None,
                    help="Override the results/models output directories.")
+    p.add_argument("--folds", type=int, default=1,
+                   help="Stratified K-fold cross-validation. 1 = single train/test split "
+                        "(default, backward compatible). 5 = 5-fold CV (saves per-fold "
+                        "metrics + aggregated mean ± std; folds stays in_results/ JSON only, "
+                        "no per-fold checkpoint).")
     return p.parse_args()
 
 
@@ -233,8 +253,9 @@ def main() -> int:
     torch.manual_seed(args.seed)
 
     from src.data import PROJECT_ROOT
-    models_dir = Path(args.out_dir) / "models" if args.out_dir else PROJECT_ROOT / "models"
-    results_dir = Path(args.out_dir) / "results" if args.out_dir else PROJECT_ROOT / "results"
+    base_dir = Path(args.out_dir).resolve() if args.out_dir else PROJECT_ROOT
+    models_dir = base_dir / "models"
+    results_dir = base_dir / "results"
     models_dir.mkdir(parents=True, exist_ok=True)
     results_dir.mkdir(parents=True, exist_ok=True)
 
@@ -301,8 +322,16 @@ def main() -> int:
             model = build_cnn(img_size=img_size).to(device)
         elif args.model == "cnn_se":
             model = build_cnn_se(img_size=img_size).to(device)
-        else:
+        elif args.model == "resnet18":
             model = build_resnet18(pretrained=True).to(device)
+        elif args.model == "resnet50":
+            model = build_resnet50(pretrained=True).to(device)
+        elif args.model == "efficientnet_b0":
+            model = build_efficientnet_b0(pretrained=True).to(device)
+        elif args.model == "mobilenetv3_large":
+            model = build_mobilenetv3_large(pretrained=True).to(device)
+        else:
+            raise ValueError(f"Unknown torch model: {args.model}")
         n_params = sum(p.numel() for p in model.parameters())
         print(f"Params: {n_params:,}")
         config["n_params"] = int(n_params)
@@ -327,7 +356,7 @@ def main() -> int:
         metrics["best_val_acc"] = result["best_val_acc"]
         metrics["history"] = result["history"]
         metrics["report"] = result["report"]
-        metrics["checkpoint"] = str(ckpt_path.relative_to(PROJECT_ROOT))
+        metrics["checkpoint"] = str(ckpt_path.relative_to(base_dir))
 
     # Save predictions + labels for confusion matrix / ROC analysis (v8.3+, all models)
     if "predictions" in result and "labels" in result:
@@ -339,6 +368,102 @@ def main() -> int:
     with open(out_path, "w") as f:
         json.dump(metrics, f, indent=2, ensure_ascii=False)
     print(f"Metrics: {out_path}")
+
+    # K-fold branch — only runs when --folds > 1. Reuses the loaded X, y so
+    # the image-loading cost is paid once. Each fold re-builds the model from
+    # scratch so different folds see different initializations (MPS
+    # non-determinism), giving an honest mean ± std. Writes a separate
+    # results/<model>_kfold.json so the existing single-split JSON stays
+    # untouched (the 87.92% number that the standard rebuttal cites must not
+    # quietly change).
+    if args.folds > 1:
+        print(f"\n=== K-fold CV: {args.folds} folds on {args.model} ===")
+        fold_indices = make_kfold_indices(y, n_folds=args.folds, seed=args.seed)
+        fold_metrics_list = []
+        last_ckpt_state = None
+        last_ckpt_acc = 0.0
+
+        for fold_idx, (train_idx, test_idx) in enumerate(fold_indices, start=1):
+            print(f"\n--- Fold {fold_idx}/{args.folds} "
+                  f"(train={len(train_idx)}, test={len(test_idx)}) ---")
+            np.random.seed(args.seed + fold_idx)
+            torch.manual_seed(args.seed + fold_idx)
+
+            X_tr, X_te = X[train_idx], X[test_idx]
+            y_tr, y_te = y[train_idx], y[test_idx]
+
+            if args.model == "rf":
+                X_tr_f = X_tr.reshape(len(X_tr), -1)
+                X_te_f = X_te.reshape(len(X_te), -1)
+                fold_result = train_random_forest(X_tr_f, y_tr, X_te_f, y_te, n_estimators=200)
+            else:
+                device = get_default_device(args.device)
+                X_tr_n = normalize_imagenet(X_tr) if args.model == "resnet18" else X_tr
+                X_te_n = normalize_imagenet(X_te) if args.model == "resnet18" else X_te
+                train_loader = DataLoader(
+                    AugDataset(X_tr_n, y_tr, train=True),
+                    batch_size=batch_size, shuffle=True,
+                )
+                test_loader = DataLoader(
+                    AugDataset(X_te_n, y_te, train=False),
+                    batch_size=batch_size * 2,
+                )
+                if args.model == "cnn":
+                    model = build_cnn(img_size=img_size).to(device)
+                elif args.model == "cnn_se":
+                    model = build_cnn_se(img_size=img_size).to(device)
+                elif args.model == "resnet18":
+                    model = build_resnet18(pretrained=True).to(device)
+                elif args.model == "resnet50":
+                    model = build_resnet50(pretrained=True).to(device)
+                elif args.model == "efficientnet_b0":
+                    model = build_efficientnet_b0(pretrained=True).to(device)
+                elif args.model == "mobilenetv3_large":
+                    model = build_mobilenetv3_large(pretrained=True).to(device)
+                else:
+                    raise ValueError(f"Unknown torch model: {args.model}")
+                fold_result = train_torch(
+                    model, train_loader, test_loader, epochs=epochs, lr=lr, device=device,
+                )
+                # Keep the best fold's state_dict (last fold is fine for
+                # a small portfolio demo; not the canonical "best across folds").
+                if fold_result["accuracy"] > last_ckpt_acc:
+                    last_ckpt_acc = fold_result["accuracy"]
+                    last_ckpt_state = {
+                        k: v.clone() for k, v in fold_result["model"].state_dict().items()
+                    }
+
+            fold_metrics_list.append(per_fold_metrics(
+                fold_result["report"],
+                predictions=fold_result.get("predictions"),
+                labels=fold_result.get("labels"),
+            ))
+            print(f"  fold {fold_idx} accuracy = {fold_metrics_list[-1]['accuracy']:.4f}")
+
+        aggregated = aggregate_folds(fold_metrics_list)
+        kfold_metrics = {
+            "config": {**config, "folds": args.folds, "kfold_seed": args.seed},
+            "folds": fold_metrics_list,
+            "aggregated": aggregated,
+        }
+        # Save best-fold checkpoint under a separate name so the canonical
+        # crack_<model>_best.pt (used by Streamlit demo) stays as-is.
+        if last_ckpt_state is not None:
+            kfold_ckpt = models_dir / f"crack_{args.model}_best_kfold.pt"
+            torch.save({
+                "model_name": args.model,
+                "state_dict": last_ckpt_state,
+                "config": kfold_metrics["config"],
+                "best_fold_acc": last_ckpt_acc,
+            }, kfold_ckpt)
+            kfold_metrics["checkpoint"] = str(kfold_ckpt.relative_to(base_dir))
+            print(f"Saved best-fold checkpoint: {kfold_ckpt}")
+        kfold_out = results_dir / f"{args.model}_kfold.json"
+        with open(kfold_out, "w") as f:
+            json.dump(kfold_metrics, f, indent=2, ensure_ascii=False)
+        print(f"K-fold metrics: {kfold_out}")
+        print(f"  aggregated accuracy = "
+              f"{aggregated['accuracy_mean']:.4f} ± {aggregated['accuracy_std']:.4f}")
 
     return 0
 

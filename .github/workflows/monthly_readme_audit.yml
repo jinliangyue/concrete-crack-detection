@@ -1,0 +1,38 @@
+name: monthly-readme-audit
+
+# Monthly audit: catches the class of bug we hit on 2026-10-08 when README
+# headline numbers (59.42% / 67.27% / 86.58%) drifted away from the
+# post-re-train numbers in results/*_results.json (59.92% / 76.25% / 87.92%)
+# and stayed inconsistent for 26 days because no one re-read the README.
+#
+# Scheduled at 09:00 UTC on the 1st of every month. Also runnable on demand
+# via the Actions tab. If drift is detected the job fails — repo owners see
+# the red ❌ in the Actions tab on their next visit; no GitHub issues are
+# opened automatically.
+
+on:
+  schedule:
+    - cron: '0 9 1 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  consistency-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Run README ↔ results JSON consistency check
+        # Returns exit 0 if consistent, 1 if drift detected.
+        run: |
+          python scripts/check_readme_consistency.py

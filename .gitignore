@@ -34,6 +34,9 @@ models/*.pt
 models/*.pth
 models/*.onnx
 
+# K-fold demo 输出（脚本生成 · 不进版本库 · 看 docs/K_FOLD.md 怎么用）
+results_kfold_demo/
+
 # 日志 / 临时
 *.log
 *.tmp

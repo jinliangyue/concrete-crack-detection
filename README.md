@@ -186,7 +186,8 @@ concrete-crack-detection/
 │   └── cross_domain_v1.json          per-surface benchmark (cross-domain commit)
 ├── scripts/
 │   ├── run_kfold_demo.sh              Quick K-fold CV demo (~2 min on 1000 images)
-│   └── export_onnx.py                 Export MobileNetV3-Large → mobile/mobilenetv3_large.onnx
+│   ├── export_onnx.py                 Export MobileNetV3-Large → mobile/mobilenetv3_large.onnx
+│   └── convert_onnx_to_tflite.py      ONNX → TFLite FP32/int8 (requires tensorflow env)
 ├── docs/
 │   ├── K_FOLD.md                      Why single-fold is the headline + how to run K-fold
 │   └── MOBILE_DEPLOY.md               ONNX export + TFLite / Core ML conversion recipes

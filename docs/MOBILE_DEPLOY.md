@@ -50,7 +50,13 @@ Run this in an environment where `tensorflow` imports cleanly (Linux
 or macOS Python 3.10+). Two equivalent recipes:
 
 ```bash
-# Recipe 1: onnx-tensorflow (best when available)
+# Recipe 1: bundled Python script (does both FP32 + int8 in one shot)
+pip install "tensorflow>=2.13" onnx onnx-tf
+python3 scripts/convert_onnx_to_tflite.py
+# → mobile/mobilenetv3_large_fp32.tflite (~16 MB)
+# → mobile/mobilenetv3_large_int8.tflite  (~4 MB)
+
+# Recipe 2: onnx-tensorflow CLI (best when available)
 pip install onnx-tensorflow tensorflow
 python3 -m onnx_tf.backend.prepare \
     --input-path mobile/mobilenetv3_large.onnx \
@@ -59,7 +65,7 @@ python3 -m tensorflow.lite.TFLiteConverter \
     --saved-model-dir=tf_model \
     --output-file=mobile/mobilenetv3_large_fp32.tflite
 
-# Recipe 2: onnx2tf + tf2onnx (when onnx-tensorflow is unavailable)
+# Recipe 3: onnx2tf + tf2onnx (when onnx-tensorflow is unavailable)
 pip install onnx2tf tensorflow
 onnx2tf -i mobile/mobilenetv3_large.onnx -o tf_model
 python3 -m tensorflow.lite.TFLiteConverter \

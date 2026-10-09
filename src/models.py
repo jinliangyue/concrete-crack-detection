@@ -121,12 +121,31 @@ def build_resnet18(pretrained: bool = True) -> nn.Module:
 
 
 def _swap_classifier(model: nn.Module, in_features: int) -> nn.Module:
-    """Replace ImageNet 1000-class head with 2-class classifier head.
+    """Replace ImageNet 1000-class head with a 2-class classifier head.
 
-    Works for any torchvision ResNet / EfficientNet / MobileNet whose final
-    layer is a single `nn.Linear` taking in_features.
+    torchvision models name the final layer differently:
+      - ResNet family uses `model.fc`           (single nn.Linear)
+      - EfficientNet uses `model.classifier`  (nn.Sequential ending in nn.Linear)
+      - MobileNet uses `model.classifier`     (nn.Sequential ending in nn.Linear)
+
+    Detect which one exists and replace it; fall back to `model.fc` for
+    safety so any future torchvision backbone that lands in this code works.
     """
-    model.fc = nn.Sequential(nn.Dropout(0.5), nn.Linear(in_features, 2))
+    new_head = nn.Sequential(nn.Dropout(0.5), nn.Linear(in_features, 2))
+    if hasattr(model, "classifier") and isinstance(model.classifier, nn.Sequential):
+        # classifier is a Sequential — replace its last Linear in-place to
+        # preserve any preceding Dropout layers that EfficientNet / MobileNet
+        # use as part of their head structure.
+        last_linear_idx = None
+        for idx, layer in enumerate(model.classifier):
+            if isinstance(layer, nn.Linear):
+                last_linear_idx = idx
+        if last_linear_idx is not None:
+            in_features = model.classifier[last_linear_idx].in_features
+            model.classifier[last_linear_idx] = nn.Linear(in_features, 2)
+            return model
+        # classifier existed but had no Linear (unlikely) — fall through.
+    model.fc = new_head
     return model
 
 

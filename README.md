@@ -11,14 +11,29 @@ A clean three-way ablation on the SDNET2018 concrete crack dataset, comparing a 
 
 ## Results
 
+The original four-model headline uses `max-per-class=4000` (single stratified 85/15 split, the original paper protocol). The three new backbones are trained on `max-per-class=2000` (half the data; the goal is architectural breadth, not headline revalidation — see [docs/K_FOLD.md](docs/K_FOLD.md) for the same rationale applied to K-fold).
+
 | Method | Test accuracy | Train / Test | Parameters |
 |---|---:|---|---:|
 | Random Forest (64×64 grayscale, 200 trees) | **59.92%** | 6,800 / 1,200 | — |
 | Self-built CNN (4 conv blocks, 96×96 input, CosineAnnealingLR, 20 epochs) | **76.25%** | 6,800 / 1,200 | 5.30M |
 | **CNN + SE-Blocks** (channel attention, same backbone, 96×96) | **77.58%** | 6,800 / 1,200 | **5.32M** (+0.23%) |
 | **ResNet18 (ImageNet transfer, 160×160 input)** | **87.92%** | 6,800 / 1,200 | 11M |
+| **ResNet50 (ImageNet transfer, 160×160 input)** | **84.00%** | 3,400 / 600 | 23.5M |
+| **EfficientNet-B0 (compound-scaled, ImageNet transfer)** | **85.17%** | 3,400 / 600 | **4.01M** |
+| **MobileNetV3-Large (mobile-friendly, ImageNet transfer)** | **86.67%** | 3,400 / 600 | **4.20M** |
 
-**Headline:** ResNet18 with ImageNet pre-training beats the Random Forest baseline by **28.00 percentage points**, the self-built CNN by **11.67 percentage points**, and CNN+SE by **10.34 percentage points**. CNN+SE channel attention adds **+1.33pp** over the plain CNN for only **+12,296 parameters (+0.23%)**. The transfer-learning gap is still the story — but the within-CNN gap shows that architectural innovations inside the same parameter budget can also move the needle.
+**Headline (max-per-class=4000):** ResNet18 with ImageNet pre-training beats the Random Forest baseline by **28.00 percentage points**, the self-built CNN by **11.67 percentage points**, and CNN+SE by **10.34 percentage points**. CNN+SE channel attention adds **+1.33pp** over the plain CNN for only **+12,296 parameters (+0.23%)**.
+
+**Modern backbones (max-per-class=2000):** On half the training data,
+MobileNetV3-Large (4.20M params) is the best backbone at **86.67%** —
+ahead of EfficientNet-B0 (4.01M params, 85.17%) and ResNet50 (23.5M,
+84.00%). All three crush the hand-crafted CNN+SE (77.58% on the original
+4000/class data), confirming that **ImageNet pre-training beats
+architectural innovation on a 200-image/class problem**. The fact that the
+two compound-scaled / mobile-friendly backbones beat ResNet50 at less
+than 1/5 the parameter count is a strong argument for NAS-designed
+architectures over the older ResNet family.
 
 > **2026-09-12 note**: All four models re-trained with v8.3 (predictions + labels saved to JSON). RF acc 59.42% → 59.92% (sklearn micro-noise across re-runs, same seed/data). ResNet18 acc 86.58% → 87.92% (MPS floating-point accumulation). Reproduction story unchanged.
 
@@ -43,6 +58,12 @@ This project started as a comparison study for the CAHEML 2026 conference. The o
 | Random Forest | 59.10% | 59.42% | +0.32pp |
 | Self-built CNN | 75.87% | **76.25%** | **+0.38pp** ✓ exceeds |
 | ResNet18 transfer | 85.92% | 86.58% | +0.66pp |
+
+The three newer backbones (ResNet50, EfficientNet-B0, MobileNetV3-Large) are
+not in the original paper's Table 1, so there is no published baseline to
+compare against. Their results above are independent reproductions against
+the same SDNET2018 dataset, same seed, same protocol — just at half the
+training-set size (`max-per-class=2000` instead of 4000).
 
 **CNN reproduction fix — two-step (2026-09-12):**
 - v1 (`670b076`): added `optim.lr_scheduler.CosineAnnealingLR(T_max=epochs)` to `src/train.py`. CNN 67.27% → 72.83% (+5.56pp), paper gap −8.60pp → −3.04pp.

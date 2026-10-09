@@ -1,0 +1,91 @@
+{
+  "config": {
+    "model": "resnet18",
+    "img_size": 160,
+    "max_per_class": 4000,
+    "surfaces": [
+      "D",
+      "P",
+      "W"
+    ],
+    "epochs": 5,
+    "lr": 0.0003,
+    "batch_size": 16,
+    "seed": 42,
+    "n_train": 6800,
+    "n_test": 1200,
+    "n_params": 11177538,
+    "folds": 5,
+    "kfold_seed": 42
+  },
+  "folds": [
+    {
+      "accuracy": 0.8675,
+      "precision": 0.893048128342246,
+      "recall": 0.835,
+      "f1": 0.8630490956072352,
+      "fpr": 0.1,
+      "fnr": 0.165
+    },
+    {
+      "accuracy": 0.8725,
+      "precision": 0.930635838150289,
+      "recall": 0.805,
+      "f1": 0.8632707774798928,
+      "fpr": 0.06,
+      "fnr": 0.195
+    },
+    {
+      "accuracy": 0.870625,
+      "precision": 0.9001349527665317,
+      "recall": 0.83375,
+      "f1": 0.8656716417910447,
+      "fpr": 0.0925,
+      "fnr": 0.16625
+    },
+    {
+      "accuracy": 0.874375,
+      "precision": 0.88745148771022,
+      "recall": 0.8575,
+      "f1": 0.8722186904005086,
+      "fpr": 0.10875,
+      "fnr": 0.1425
+    },
+    {
+      "accuracy": 0.886875,
+      "precision": 0.9035202086049544,
+      "recall": 0.86625,
+      "f1": 0.8844926611359285,
+      "fpr": 0.0925,
+      "fnr": 0.13375
+    }
+  ],
+  "aggregated": {
+    "n_folds": 5,
+    "accuracy_mean": 0.874375,
+    "accuracy_std": 0.0074346107833564235,
+    "accuracy_min": 0.8675,
+    "accuracy_max": 0.886875,
+    "precision_mean": 0.9029581231148482,
+    "precision_std": 0.0166808713685912,
+    "precision_min": 0.88745148771022,
+    "precision_max": 0.930635838150289,
+    "recall_mean": 0.8394999999999999,
+    "recall_std": 0.023891028650939228,
+    "recall_min": 0.805,
+    "recall_max": 0.86625,
+    "f1_mean": 0.869740573282922,
+    "f1_std": 0.009040955358450757,
+    "f1_min": 0.8630490956072352,
+    "f1_max": 0.8844926611359285,
+    "fpr_mean": 0.09075,
+    "fpr_std": 0.01844756081437327,
+    "fpr_min": 0.06,
+    "fpr_max": 0.10875,
+    "fnr_mean": 0.1605,
+    "fnr_std": 0.02389102865093925,
+    "fnr_min": 0.13375,
+    "fnr_max": 0.195
+  },
+  "checkpoint": "models/crack_resnet18_best_kfold.pt"
+}

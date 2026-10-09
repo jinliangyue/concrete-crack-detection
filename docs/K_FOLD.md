@@ -49,6 +49,10 @@ What the std actually tells you:
 - **CNN+SE FPR 26.7%** is dramatically lower than the demo 37.4% — the
   extra training data (4000 vs 500 per class) halves the false-positive
   rate, showing the model was undertrained on small data.
+- **ResNet18 FPR 9.1% is 5× lower than RF's 46.0%** — ImageNet pre-training
+  transfers calibrated features that don't over-predict the positive
+  class even when test data is held out. This is the strongest evidence
+  for "transfer learning beats architectural innovation" in this repo.
 
 (The single-fold numbers here are from the small subset, not the headline
 59.92% / 77.58% / 87.92% from `max-per-class=4000`. K-fold on a small subset

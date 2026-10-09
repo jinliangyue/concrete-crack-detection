@@ -24,9 +24,10 @@ machine (Apple Silicon MPS, PyTorch 2.8.0):
 
 | Model | Single-fold accuracy | 5-fold accuracy mean ± std | 5-fold FPR mean ± std |
 |---|---:|---:|---:|
-| RF | 54.67% | **55.90% ± 3.71%** | **44.6% ± 5.5%** |
-| CNN+SE | 60.50% (best fold) | **58.50% ± 1.62%** | **37.4% ± 11.9%** |
-| ResNet18 | 86.50% (best fold) | **84.00% ± 2.72%** | **10.8% ± 2.3%** |
+| RF (4000/class) | 59.92% | **59.12% ± 1.00%** | **46.0% ± 2.4%** |
+| RF (500/class demo) | 54.67% | 55.90% ± 3.71% | 44.6% ± 5.5% |
+| CNN+SE (500/class demo) | 60.50% (best fold) | 58.50% ± 1.62% | 37.4% ± 11.9% |
+| ResNet18 (500/class demo) | 86.50% (best fold) | 84.00% ± 2.72% | 10.8% ± 2.3% |
 
 (The single-fold numbers here are from the small subset, not the headline
 59.92% / 77.58% / 87.92% from `max-per-class=4000`. K-fold on a small subset

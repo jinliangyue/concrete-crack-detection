@@ -1,0 +1,91 @@
+{
+  "config": {
+    "model": "cnn_se",
+    "img_size": 96,
+    "max_per_class": 4000,
+    "surfaces": [
+      "D",
+      "P",
+      "W"
+    ],
+    "epochs": 12,
+    "lr": 0.001,
+    "batch_size": 32,
+    "seed": 42,
+    "n_train": 6800,
+    "n_test": 1200,
+    "n_params": 5316010,
+    "folds": 5,
+    "kfold_seed": 42
+  },
+  "folds": [
+    {
+      "accuracy": 0.690625,
+      "precision": 0.6967741935483871,
+      "recall": 0.675,
+      "f1": 0.6857142857142857,
+      "fpr": 0.29375,
+      "fnr": 0.325
+    },
+    {
+      "accuracy": 0.713125,
+      "precision": 0.7222946544980443,
+      "recall": 0.6925,
+      "f1": 0.7070835992342055,
+      "fpr": 0.26625,
+      "fnr": 0.3075
+    },
+    {
+      "accuracy": 0.725,
+      "precision": 0.7238805970149254,
+      "recall": 0.7275,
+      "f1": 0.7256857855361596,
+      "fpr": 0.2775,
+      "fnr": 0.2725
+    },
+    {
+      "accuracy": 0.72125,
+      "precision": 0.7122302158273381,
+      "recall": 0.7425,
+      "f1": 0.7270501835985312,
+      "fpr": 0.3,
+      "fnr": 0.2575
+    },
+    {
+      "accuracy": 0.751875,
+      "precision": 0.7818181818181819,
+      "recall": 0.69875,
+      "f1": 0.737953795379538,
+      "fpr": 0.195,
+      "fnr": 0.30125
+    }
+  ],
+  "aggregated": {
+    "n_folds": 5,
+    "accuracy_mean": 0.720375,
+    "accuracy_std": 0.02209089886129577,
+    "accuracy_min": 0.690625,
+    "accuracy_max": 0.751875,
+    "precision_mean": 0.7273995685413753,
+    "precision_std": 0.0322794502516245,
+    "precision_min": 0.6967741935483871,
+    "precision_max": 0.7818181818181819,
+    "recall_mean": 0.70725,
+    "recall_std": 0.027306134841826306,
+    "recall_min": 0.675,
+    "recall_max": 0.7425,
+    "f1_mean": 0.716697529892544,
+    "f1_std": 0.020568082574936142,
+    "f1_min": 0.6857142857142857,
+    "f1_max": 0.737953795379538,
+    "fpr_mean": 0.26650000000000007,
+    "fpr_std": 0.0421251854595324,
+    "fpr_min": 0.195,
+    "fpr_max": 0.3,
+    "fnr_mean": 0.29275,
+    "fnr_std": 0.027306134841826295,
+    "fnr_min": 0.2575,
+    "fnr_max": 0.325
+  },
+  "checkpoint": "models/crack_cnn_se_best_kfold.pt"
+}

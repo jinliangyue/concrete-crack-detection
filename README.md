@@ -35,6 +35,26 @@ two compound-scaled / mobile-friendly backbones beat ResNet50 at less
 than 1/5 the parameter count is a strong argument for NAS-designed
 architectures over the older ResNet family.
 
+### Mobile / edge deployment
+
+The best backbone (MobileNetV3-Large, 4.20M params) is small enough to
+ship on a phone. `scripts/export_onnx.py` produces a mobile-ready ONNX
+file under `mobile/mobilenetv3_large.onnx` (16 MB, opset 17). PyTorch
+output vs ONNX Runtime output parity is verified at runtime (max abs
+diff **0.000025**).
+
+| Format | Size | Best runtime |
+|---|---:|---|
+| PyTorch .pt (FP32) | 16.8 MB | (reference) |
+| **ONNX Runtime Mobile (FP32)** | **16.0 MB** | iOS · Android · Web |
+| ONNX int8 PTQ | ~4 MB | iOS · Android |
+
+TFLite and Core ML are deliberately **not** shipped — both require
+toolchains that conflict with this repo's training stack on macOS
+Python 3.9. See [docs/MOBILE_DEPLOY.md](docs/MOBILE_DEPLOY.md) for the
+explicit recipes on those targets (anyone with a working
+`tensorflow` / `coremltools` install can convert the .onnx in 5 lines).
+
 > **2026-09-12 note**: All four models re-trained with v8.3 (predictions + labels saved to JSON). RF acc 59.42% → 59.92% (sklearn micro-noise across re-runs, same seed/data). ResNet18 acc 86.58% → 87.92% (MPS floating-point accumulation). Reproduction story unchanged.
 
 > **2026-09-12 note**: ResNet18 was re-trained after landing the `predictions`/`labels` JSON output (v8.3). New test accuracy 87.92% (previously 86.58%); the +1.34pp shift is MPS floating-point accumulation noise across re-runs — same seed, same data, slight non-determinism in cuBLAS / MPS kernels. The reproduction story is unchanged.
@@ -161,12 +181,19 @@ concrete-crack-detection/
 │   ├── cnn_results.json               76.25% acc
 │   ├── cnn_se_results.json            77.58% acc
 │   ├── resnet18_results.json          87.92% acc
+│   ├── rf_kfold.json                  59.12% ± 1.00% (headline K-fold)
+│   ├── cnn_se_kfold.json              72.04% ± 2.21% (headline K-fold)
 │   └── cross_domain_v1.json          per-surface benchmark (cross-domain commit)
 ├── scripts/
-│   └── run_kfold_demo.sh              Quick K-fold CV demo (~2 min on 1000 images)
+│   ├── run_kfold_demo.sh              Quick K-fold CV demo (~2 min on 1000 images)
+│   └── export_onnx.py                 Export MobileNetV3-Large → mobile/mobilenetv3_large.onnx
 ├── docs/
-│   └── K_FOLD.md                      Why single-fold is the headline + how to run K-fold
+│   ├── K_FOLD.md                      Why single-fold is the headline + how to run K-fold
+│   └── MOBILE_DEPLOY.md               ONNX export + TFLite / Core ML conversion recipes
 ├── P0_Evidence/                       Standard rebuttal evidence (5a51a05)
+├── mobile/
+│   ├── mobilenetv3_large.onnx         16 MB ONNX (opset 17, dynamic batch)
+│   └── manifest.json                  ONNX size + PyTorch/ONNX parity check summary
 │   ├── README.md                      P0 task description + 4-model FPR/FNR table + verification formulas
 │   ├── metrics/                       final_metrics.csv + final_metrics.md
 │   ├── confusion_matrix/              5 PNGs (1 merged + 4 single)

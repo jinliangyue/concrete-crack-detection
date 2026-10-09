@@ -1,0 +1,14 @@
+{
+  "pytorch_params": 4204594,
+  "pytorch_acc_pct": 54.5,
+  "pytorch_crack_acc_pct": 12.0,
+  "onnx": {
+    "path": "mobile/mobilenetv3_large.onnx",
+    "size_bytes": 16808383,
+    "size_kb": 16414,
+    "size_mb": 16.03,
+    "opset": 17,
+    "producer": "pytorch 2.8.0",
+    "parity_ok": true
+  }
+}

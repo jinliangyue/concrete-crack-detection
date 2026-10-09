@@ -36,6 +36,10 @@ models/*.onnx
 
 # K-fold demo 输出（脚本生成 · 不进版本库 · 看 docs/K_FOLD.md 怎么用）
 results_kfold_demo/
+# Mobile export artifacts large (.onnx stays, but optional .tflite / .mlmodel don't)
+mobile/*.tflite
+mobile/*.mlmodel
+mobile/*.mlpackage
 
 # 日志 / 临时
 *.log

@@ -26,6 +26,7 @@ machine (Apple Silicon MPS, PyTorch 2.8.0):
 |---|---:|---:|---:|
 | RF (4000/class, headline) | 59.92% | **59.12% ± 1.00%** | **46.0% ± 2.4%** |
 | CNN+SE (4000/class, headline, 12 epochs) | 77.58% (20 epochs) / 73.50% (12 epochs) | **72.04% ± 2.21%** | **26.7% ± 4.2%** |
+| **ResNet18 (4000/class, headline, 5 epochs)** | **87.92%** | **87.44% ± 0.74%** | **9.1% ± 1.8%** |
 | RF (500/class demo) | 54.67% | 55.90% ± 3.71% | 44.6% ± 5.5% |
 | CNN+SE (500/class demo, 10 epochs) | 60.50% (best fold) | 58.50% ± 1.62% | 37.4% ± 11.9% |
 | ResNet18 (500/class demo) | 86.50% (best fold) | 84.00% ± 2.72% | 10.8% ± 2.3% |
@@ -37,22 +38,40 @@ at 73.50% — close to the K-fold mean of 72.04%. The single-fold number
 **77.58%** is from the original 20-epoch retrain that backstops the
 standard rebuttal citations and is preserved as the headline.
 
-What the std actually tells you:
+**Note on ResNet18 K-fold headline:** Ran with `--epochs 5` (vs single-fold's
+12 epochs) to fit the MPS wall-clock cap. The 5-epoch single fold on
+the same data lands at 87.31% — close to the K-fold mean of 87.44%.
+The single-fold number **87.92%** is preserved as the headline.
 
-- **RF (4000/class headline): ±1.00% acc, ±2.4% FPR** — tight std confirms
-  single-fold 59.92% is statistically stable.
-- **CNN+SE (4000/class headline): ±2.21% acc, ±4.2% FPR** — wider than RF
+What the std actually tells you (4000/class headline K-fold):
+
+- **RF: ±1.00% acc, ±2.4% FPR (44.6% mean FPR)** — tight std confirms
+  single-fold 59.92% is statistically stable. RF has high FPR (it
+  over-predicts Crack on most slices).
+- **CNN+SE: ±2.21% acc, ±4.2% FPR (26.7% mean FPR)** — wider acc std
   because the model has more trainable parameters and is more sensitive
-  to which 1200-image slice you test on. The headline is 77.58% with
-  20 epochs; the K-fold mean of 72.04% is from 12 epochs (wall-clock
-  trade-off).
+  to which 1200-image slice you test on. FPR drops 17pp vs RF.
 - **CNN+SE FPR 26.7%** is dramatically lower than the demo 37.4% — the
   extra training data (4000 vs 500 per class) halves the false-positive
   rate, showing the model was undertrained on small data.
-- **ResNet18 FPR 9.1% is 5× lower than RF's 46.0%** — ImageNet pre-training
-  transfers calibrated features that don't over-predict the positive
-  class even when test data is held out. This is the strongest evidence
-  for "transfer learning beats architectural innovation" in this repo.
+- **ResNet18: ±0.74% acc, ±1.8% FPR (9.1% mean FPR)** — **the tightest
+  std of any model**. ImageNet pre-training produces stable features
+  even with just 5 epochs. FPR drops ~5× vs RF and ~3× vs CNN+SE.
+
+The headline + K-fold combination gives the standard rebuttal a
+four-claim evidence chain for Q5 "is the AI accuracy trustworthy":
+
+| Claim | Evidence |
+|---|---|
+| ResNet18 hits 87.92% on one stratified split | single fold (training log) |
+| 87.92% is not a lucky split | K-fold mean 87.44% within 1σ (0.74pp) |
+| FPR is ~5× lower than RF | 9.1% (ResNet18 K-fold) vs 46.0% (RF K-fold) |
+| All K-fold models are reproducible | per-fold std stays in 0.7-2.2pp band |
+
+ResNet18 FPR 9.1% is 5× lower than RF's 46.0% — ImageNet pre-training
+transfers calibrated features that don't over-predict the positive
+class even when test data is held out. This is the strongest evidence
+for "transfer learning beats architectural innovation" in this repo.
 
 (The single-fold numbers here are from the small subset, not the headline
 59.92% / 77.58% / 87.92% from `max-per-class=4000`. K-fold on a small subset

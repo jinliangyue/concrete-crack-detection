@@ -39,24 +39,26 @@ MODELS = [
 def load_accuracy(json_path: Path) -> float | None:
     """Read accuracy from a results JSON.
 
-    K-fold JSONs (when present) take precedence — they are the more reliable
-    source. Returns the first stable fold's accuracy (or aggregated.mean if
-    only aggregated is present).
+    Single-fold `accuracy` is the canonical headline (matches the README's
+    quoted test accuracy). The K-fold aggregated mean is only used when the
+    headline number is unavailable (e.g. the file was produced by a K-fold
+    run that didn't write a single-fold accuracy field).
     """
     try:
         data = json.loads(json_path.read_text())
     except FileNotFoundError:
         return None
-    # Aggregated K-fold mean is the most reliable number.
+    # Single-fold accuracy is the headline number (matches standard
+    # rebuttal citations + the value quoted in the README table).
+    acc = data.get("accuracy")
+    if acc is not None:
+        return float(acc) * 100
+    # Fall back to aggregated K-fold mean when single-fold is absent.
     if "aggregated" in data and isinstance(data["aggregated"], dict):
         mean = data["aggregated"].get("accuracy_mean")
         if mean is not None:
             return float(mean) * 100
-    # Single-fold accuracy.
-    acc = data.get("accuracy")
-    if acc is None:
-        return None
-    return float(acc) * 100  # convert to percentage
+    return None
 
 
 def find_headline_acc_pcts(text: str, label: str) -> list[str]:

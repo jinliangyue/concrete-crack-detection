@@ -13,6 +13,11 @@ A clean three-way ablation on the SDNET2018 concrete crack dataset, comparing a 
 
 The original four-model headline uses `max-per-class=4000` (single stratified 85/15 split, the original paper protocol). The three new backbones are trained on `max-per-class=2000` (half the data; the goal is architectural breadth, not headline revalidation — see [docs/K_FOLD.md](docs/K_FOLD.md) for the same rationale applied to K-fold).
 
+![results comparison](docs/figures/results_comparison.png)
+
+| Method | Test accuracy | Train / Test | Parameters |
+|---|---:|---|---:|
+
 | Method | Test accuracy | Train / Test | Parameters |
 |---|---:|---|---:|
 | Random Forest (64×64 grayscale, 200 trees) | **59.92%** | 6,800 / 1,200 | — |
@@ -42,6 +47,17 @@ ship on a phone. `scripts/export_onnx.py` produces a mobile-ready ONNX
 file under `mobile/mobilenetv3_large.onnx` (16 MB, opset 17). PyTorch
 output vs ONNX Runtime output parity is verified at runtime (max abs
 diff **0.000025**).
+
+Per-model confusion matrices (saved from each training run, normalized
+to per-class support):
+
+| ResNet18 | CNN + SE-Blocks | MobileNetV3-Large |
+|---|---|---|
+| ![](docs/figures/confusion_resnet18.png) | ![](docs/figures/confusion_cnn_se.png) | ![](docs/figures/confusion_mobilenetv3_large.png) |
+
+Note the FPR column (right-most) — ResNet18's column is visibly the
+shortest among the three, which is the same FPR advantage the headline
+K-fold numbers quantify (9.1% vs 26.7% vs 46.0%).
 
 | Format | Size | Best runtime |
 |---|---:|---|
@@ -187,8 +203,14 @@ concrete-crack-detection/
 ├── scripts/
 │   ├── run_kfold_demo.sh              Quick K-fold CV demo (~2 min on 1000 images)
 │   ├── export_onnx.py                 Export MobileNetV3-Large → mobile/mobilenetv3_large.onnx
-│   └── convert_onnx_to_tflite.py      ONNX → TFLite FP32/int8 (requires tensorflow env)
+│   ├── convert_onnx_to_tflite.py      ONNX → TFLite FP32/int8 (requires tensorflow env)
+│   └── plot_results.py                Generate docs/figures/*.png (comparison bar chart + 3 confusion matrices)
 ├── docs/
+│   ├── figures/
+│   │   ├── results_comparison.png     7-model accuracy bar chart (single fold + K-fold)
+│   │   ├── confusion_resnet18.png      normalized 2x2 confusion matrix (per-class support)
+│   │   ├── confusion_cnn_se.png        "
+│   │   └── confusion_mobilenetv3_large.png   "
 │   ├── K_FOLD.md                      Why single-fold is the headline + how to run K-fold
 │   └── MOBILE_DEPLOY.md               ONNX export + TFLite / Core ML conversion recipes
 ├── P0_Evidence/                       Standard rebuttal evidence (5a51a05)

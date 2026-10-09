@@ -1,0 +1,68 @@
+# Dockerfile.tflite — convert mobile/mobilenetv3_large.onnx → TFLite
+#
+# This image does NOT depend on the training toolchain (torch 2.8 +
+# torchvision 0.23). It ships a fresh tensorflow install that imports
+# cleanly on Linux + macOS Python 3.10+ + Windows, and runs the
+# one-shot ONNX → TFLite converter.
+#
+# Usage:
+#     docker build -f Dockerfile.tflite -t crack-tflite .
+#     docker run --rm -v "$PWD:/work" crack-tflite
+#
+# Output (in /work/mobile/):
+#     mobilenetv3_large_fp32.tflite    (~16 MB)
+#     mobilenetv3_large_int8.tflite    (~4 MB)
+#
+# Optional: pass a CPU-only base image to skip the AVX2 build:
+#     docker build --build-arg TF_BASE=tensorflow/tensorflow:2.16.1-py3 \
+#                -f Dockerfile.tflite -t crack-tflite .
+
+ARG TF_BASE=tensorflow/tensorflow:2.16.1
+FROM ${TF_BASE} AS converter
+
+# Avoid the "tensorflow imports hang forever" pitfall on macOS Apple Silicon
+# Python 3.9 — this image runs Linux + Python 3.10, where TF imports
+# cleanly. If you're on a Mac and want native execution, use
+# scripts/convert_onnx_to_tflite.py directly in a tensorflow venv.
+ENV PYTHONUNBUFFERED=1 \
+    TF_CPP_MIN_LOG_LEVEL=2 \
+    PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
+
+WORKDIR /work
+
+# onnx + onnx-tf are unmaintained; pin versions known to work with
+# tensorflow 2.16. The TF ecosystem has been deprecating these in
+# favor of ai-edge-torch, but ONNX → TFLite still goes through this
+# path. See docs/MOBILE_DEPLOY.md for context.
+RUN pip install --quiet --no-cache-dir \
+        "onnx>=1.15,<2" \
+        "onnx-tf==1.10.0" \
+        "tensorflow-protobuf==2.16.1" \
+    && python -c "import onnx, onnx_tf, tensorflow as tf; print('TF', tf.__version__, '·  ONNX', onnx.__version__)"
+
+# Copy the repo so the conversion script can find mobile/*.onnx.
+COPY . /work
+
+RUN python3 scripts/convert_onnx_to_tflite.py
+
+# Quick sanity check: load both .tflite files and print their input / output
+# tensor shapes + the quantized dtype. Skipping inference timing here —
+# that's the consumer's problem (use scripts/benchmark_tflite.py once
+# shipped).
+RUN python3 - <<'PY'
+import tensorflow as tf
+for name in ("fp32", "int8"):
+    path = f"/work/mobile/mobilenetv3_large_{name}.tflite"
+    interp = tf.lite.Interpreter(model_path=path)
+    interp.allocate_tensors()
+    inp = interp.get_input_details()[0]
+    out = interp.get_output_details()[0]
+    print(f"{name:5s}  in={inp['shape']} dtype={inp['dtype'].__name__}  "
+          f"out={out['shape']} dtype={out['dtype'].__name__}  "
+          f"size={sum(1 for _ in open(path, 'rb').read())/1024/1024:.2f} MB")
+PY
+
+# Final image — just the conversion artifacts, not the toolchain.
+FROM scratch AS artifacts
+COPY --from=converter /work/mobile/mobilenetv3_large_fp32.tflite /mobilenetv3_large_fp32.tflite
+COPY --from=converter /work/mobile/mobilenetv3_large_int8.tflite /mobilenetv3_large_int8.tflite

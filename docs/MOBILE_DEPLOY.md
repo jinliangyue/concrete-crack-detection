@@ -82,6 +82,23 @@ python3 -m tensorflow.lite.TFLiteConverter \
     --optimizations=[tf.lite.Optimize.DEFAULT]
 ```
 
+### One-shot Docker recipe
+
+Skip the python venv dance on Linux / macOS / Windows. The repo
+ships a `Dockerfile.tflite` that does both conversions in one image:
+
+```bash
+docker build -f Dockerfile.tflite -t crack-tflite .
+docker run --rm -v "$PWD:/work" crack-tflite
+# → mobile/mobilenetv3_large_fp32.tflite  (~16 MB)
+# → mobile/mobilenetv3_large_int8.tflite  (~4 MB)
+```
+
+The `Dockerfile.tflite` uses the official `tensorflow/tensorflow:2.16.1`
+base image (Linux + Python 3.10), which sidesteps the macOS Apple
+Silicon mutex / coremltools hang issues we hit when trying to run the
+script on the training toolchain.
+
 ## Converting the .onnx to Core ML
 
 ```bash
